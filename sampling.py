@@ -16,11 +16,6 @@ c = [1/2,1/6,1/3]
 means = [[0.5,0.5],[-15,15], [8,8]]
 variances = [[[1,0],[0,1]], [[5, -2],[-2,5]] , [[1, 2],[2,1]]]
 
-
-def scatter_plot(points):
-    plt.scatter(points[:,0],points[:,1])
-    plt.show()
-
 def beta(t):
     return 20*t
 
@@ -30,18 +25,7 @@ def drift(x,t):
 def diffusion(t):
     return sqrt(beta(t))
 
-# class GaussianFourierProjection(nn.Module):
-#   """Gaussian Fourier embeddings for noise levels."""
-#   def __init__(self, embedding_size=256, scale=1.0):
-#     super().__init__()
-#     self.W = nn.Parameter(torch.randn(embedding_size) * scale, requires_grad=False)
-#   def forward(self, x):
-#     x_proj = x[:, None] * self.W[None, :] * 2 * np.pi
-#     return torch.cat([torch.sin(x_proj), torch.cos(x_proj)], dim=-1)
-
-
 sde = sde_lib.SDE(100,1,beta=beta(1))
-samples = np.array(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 
 device = 'cpu'
 score_function = model.Score(2)
@@ -49,8 +33,9 @@ checkpoint = torch.load('./coefficientsNoFFT.pth')
 score_function.load_state_dict(checkpoint)
 score_function.to(device=device)
 
-samples = torch.tensor(samples)
-samples.to(device=device)
+
+samples = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
+samples = samples.to(device=device)
 
 train = True
 train = False
