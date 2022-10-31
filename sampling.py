@@ -16,7 +16,6 @@ c = [1/2,1/6,1/3]
 means = [[0.5,0.5],[-15,15], [8,8]]
 variances = [[[1,0],[0,1]], [[5, -2],[-2,5]] , [[1, 2],[2,1]]]
 
-
 def scatter_plot(points):
     plt.scatter(points[:,0],points[:,1])
     plt.show()
@@ -42,7 +41,7 @@ samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = 'cpu'
 score_function = model.Score(2)
-checkpoint = torch.load('./coefficients.pth')
+checkpoint = torch.load('./coefficientsFFT.pth')
 score_function.load_state_dict(checkpoint)
 
 
