@@ -1,5 +1,6 @@
 from bisect import bisect_left
 from cmath import sqrt
+from turtle import color
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -20,8 +21,8 @@ def get_sample_from_multi_gaussian(lambda_,gamma_,mean):
 num_samples = 1000
 
 c = [1/2,1/6,1/3]
-means = [[0.5,0.5],[15,15], [8,8]]
-variances = [[[1,0],[0,1]], [[1, 3],[3,1]] , [[1, 2],[2,1]]]
+means = [[0.5,0.5],[-15,15], [8,8]]
+variances = [[[1,0],[0,1]], [[5, -2],[-2,5]] , [[1, 2],[2,1]]]
 
 def get_samples_from_mixed_gaussian(c,means,variances):
     n = len(c)
@@ -56,15 +57,20 @@ def diffusion(t):
 
 
 sde = sde_lib.SDE(100,1,beta=beta(1))
-samples = np.array(get_samples_from_mixed_gaussian(c,means,variances))
+samplesBeforeFFT = torch.tensor(get_samples_from_mixed_gaussian(c,means,variances))
+samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
+
+
+plt.scatter(samples[:,0],samples[:,1],color='red')
+plt.show()
 
 device = 'cpu'
 score_function = model.Score(2)
 checkpoint = torch.load('./coefficients.pth')
 score_function.load_state_dict(checkpoint)
-score_function.to(device=device)
 
-samples = torch.tensor(samples)
+
+score_function.to(device=device)
 samples.to(device=device)
 
 train = True
@@ -91,6 +97,13 @@ if train:
     plt.plot(np.linspace(1,len(errors),len(errors)),errors)
     plt.show()
 else:
-    generatedSamples = generate_samples(score_network=score_function, nsamples=1000)
-    plt.scatter(generatedSamples[:,0],generatedSamples[:,1])
+    generatedSamplesBeforeFFT = generate_samples(score_network=score_function, nsamples=1000)
+
+    plt.scatter(samples[:,0],samples[:,1],color='red')
+    plt.scatter(generatedSamplesBeforeFFT[:,0],generatedSamplesBeforeFFT[:,1],color='blue')
+    plt.show()
+
+    generatedSamples = torch.fft.ifft(generatedSamplesBeforeFFT,norm="forward")
+    plt.scatter(samplesBeforeFFT[:,0],samplesBeforeFFT[:,1],color='red')
+    plt.scatter(generatedSamples[:,0],generatedSamples[:,1],color='blue')
     plt.show()
