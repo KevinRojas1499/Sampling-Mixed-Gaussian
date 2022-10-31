@@ -7,7 +7,7 @@ import torch
 import sde_lib 
 import model
 import training
-
+import ot
 
 def get_sample_from_multi_gaussian(lambda_,gamma_,mean):
     # Here lambda and gamma are the eigen decomposition of the corresponding covariance matrix
@@ -61,8 +61,8 @@ samplesBeforeFFT = torch.tensor(get_samples_from_mixed_gaussian(c,means,variance
 samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
 
 
-plt.scatter(samples[:,0],samples[:,1],color='red')
-plt.show()
+# plt.scatter(samples[:,0],samples[:,1],color='red')
+# plt.show()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = 'cpu'
@@ -81,7 +81,7 @@ train = False
 def generate_samples(score_network: torch.nn.Module, nsamples: int) -> torch.Tensor:
     x_t = torch.randn((nsamples, 2))
     time_pts = torch.linspace(1, 0, 1000)
-    beta = lambda t:  20 * t
+    beta = lambda t:  beta(t)
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
@@ -100,13 +100,19 @@ if train:
 else:
     generatedSamplesFFT = generate_samples(score_network=score_function, nsamples=1000)
 
-    plt.scatter(samples[:,0],samples[:,1],color='red')
-    plt.scatter(generatedSamplesFFT[:,0],generatedSamplesFFT[:,1],color='blue')
-    plt.show()
+    # plt.scatter(samples[:,0],samples[:,1],color='red')
+    # plt.scatter(generatedSamplesFFT[:,0],generatedSamplesFFT[:,1],color='blue')
+    # plt.show()
 
     generatedSamples = torch.fft.ifft(generatedSamplesFFT,norm="forward")
-    print(generatedSamples.size(),generatedSamples.dtype)
-    print(generatedSamples[:,0])
+
+    realPart = generatedSamples.real.type(torch.double)
+    ab = torch.ones(1000) / 1000
+    M = ot.dist(samplesBeforeFFT,realPart, metric='euclidean')
+    print(samplesBeforeFFT.size(),realPart.size())
+    print(ot.emd2(ab,ab,M))
+
+
     plt.scatter(samplesBeforeFFT[:,0],samplesBeforeFFT[:,1],color='red')
     plt.scatter(generatedSamples[:,0].real,generatedSamples[:,1].real,color='blue')
     plt.show()
