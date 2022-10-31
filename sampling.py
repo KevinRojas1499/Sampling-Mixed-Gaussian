@@ -8,15 +8,7 @@ import sde_lib
 import model
 import training
 import ot
-
-def get_sample_from_multi_gaussian(lambda_,gamma_,mean):
-    # Here lambda and gamma are the eigen decomposition of the corresponding covariance matrix
-    dimensions = len(lambda_)
-    # sampling from normal distribution
-    x_normal = np.random.randn(dimensions)
-    # transforming into multivariate distribution
-    x_multi = (x_normal*lambda_) @ gamma_ + mean
-    return x_multi
+import generateSamples
 
 num_samples = 1000
 
@@ -24,23 +16,6 @@ c = [1/2,1/6,1/3]
 means = [[0.5,0.5],[-15,15], [8,8]]
 variances = [[[1,0],[0,1]], [[5, -2],[-2,5]] , [[1, 2],[2,1]]]
 
-def get_samples_from_mixed_gaussian(c,means,variances):
-    n = len(c)
-    accum = np.zeros(n)
-    accum[0] = c[0]
-    for i in range(1,n):
-        accum[i] = accum[i-1]+c[i]
-    lambdas = []
-    gamma = []
-    for i in range(n):
-        lambda_, gamma_ = np.linalg.eig(np.array(variances[i]))
-        lambdas.append(lambda_)
-        gamma.append(gamma_)
-    samples = []
-    for i in range(num_samples):
-        idx = bisect_left(accum,np.random.rand(1)[0])
-        samples.append(get_sample_from_multi_gaussian(lambda_=lambdas[idx],gamma_=gamma[idx],mean=means[idx]))
-    return samples
 
 def scatter_plot(points):
     plt.scatter(points[:,0],points[:,1])
@@ -57,7 +32,7 @@ def diffusion(t):
 
 
 sde = sde_lib.SDE(100,1,beta=beta(1))
-samplesBeforeFFT = torch.tensor(get_samples_from_mixed_gaussian(c,means,variances))
+samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
 
 
