@@ -64,14 +64,15 @@ samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
 plt.scatter(samples[:,0],samples[:,1],color='red')
 plt.show()
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = 'cpu'
 score_function = model.Score(2)
 checkpoint = torch.load('./coefficients.pth')
 score_function.load_state_dict(checkpoint)
 
 
-score_function.to(device=device)
-samples.to(device=device)
+score_function = score_function.to(device=device)
+samples = samples.to(device=device)
 
 train = True
 train = False
@@ -80,7 +81,7 @@ train = False
 def generate_samples(score_network: torch.nn.Module, nsamples: int) -> torch.Tensor:
     x_t = torch.randn((nsamples, 2))
     time_pts = torch.linspace(1, 0, 1000)
-    beta = lambda t: 0.1 + (20 - 0.1) * t
+    beta = lambda t:  20 * t
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
@@ -93,17 +94,19 @@ def generate_samples(score_network: torch.nn.Module, nsamples: int) -> torch.Ten
     return x_t
 
 if train:
-    errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001)
+    errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001,device=device)
     plt.plot(np.linspace(1,len(errors),len(errors)),errors)
     plt.show()
 else:
-    generatedSamplesBeforeFFT = generate_samples(score_network=score_function, nsamples=1000)
+    generatedSamplesFFT = generate_samples(score_network=score_function, nsamples=1000)
 
     plt.scatter(samples[:,0],samples[:,1],color='red')
-    plt.scatter(generatedSamplesBeforeFFT[:,0],generatedSamplesBeforeFFT[:,1],color='blue')
+    plt.scatter(generatedSamplesFFT[:,0],generatedSamplesFFT[:,1],color='blue')
     plt.show()
 
-    generatedSamples = torch.fft.ifft(generatedSamplesBeforeFFT,norm="forward")
+    generatedSamples = torch.fft.ifft(generatedSamplesFFT,norm="forward")
+    print(generatedSamples.size(),generatedSamples.dtype)
+    print(generatedSamples[:,0])
     plt.scatter(samplesBeforeFFT[:,0],samplesBeforeFFT[:,1],color='red')
-    plt.scatter(generatedSamples[:,0],generatedSamples[:,1],color='blue')
+    plt.scatter(generatedSamples[:,0].real,generatedSamples[:,1].real,color='blue')
     plt.show()
