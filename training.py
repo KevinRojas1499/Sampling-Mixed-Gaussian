@@ -16,11 +16,7 @@ def train(sde, score_model, number_of_steps, data, device):
     if(i%10000 == 0):
       print(f"Step number {i} ({time.time() - t0}s) \nError : {loss}")
       errors.append(loss)
-<<<<<<< HEAD
       torch.save(score_model.state_dict(), 'coefficientsFFT.pth')
-=======
-      torch.save(score_model.state_dict(), 'coefficientsNoFFT.pth')
->>>>>>> main
   return errors
 
 

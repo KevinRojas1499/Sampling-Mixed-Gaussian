@@ -7,27 +7,15 @@ import sde_lib
 import model
 import training
 import ot
-<<<<<<< HEAD
-import generateSamples
-
-=======
 import wandb
 import generateSamples
 
 
->>>>>>> main
 num_samples = 1000
 
 c = [1/2,1/6,1/3]
 means = [[0.5,0.5],[-15,15], [8,8]]
 variances = [[[1,0],[0,1]], [[5, -2],[-2,5]] , [[1, 2],[2,1]]]
-<<<<<<< HEAD
-
-def scatter_plot(points):
-    plt.scatter(points[:,0],points[:,1])
-    plt.show()
-=======
->>>>>>> main
 
 def beta(t):
     return 20*t
@@ -39,11 +27,8 @@ def diffusion(t):
     return sqrt(beta(t))
 
 sde = sde_lib.SDE(100,1,beta=beta(1))
-<<<<<<< HEAD
 samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
-=======
->>>>>>> main
 
 
 # plt.scatter(samples[:,0],samples[:,1],color='red')
@@ -52,19 +37,11 @@ samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = 'cpu'
 score_function = model.Score(2)
-<<<<<<< HEAD
 checkpoint = torch.load('./coefficientsFFT.pth')
-=======
-checkpoint = torch.load('./coefficientsNoFFT.pth')
->>>>>>> main
 score_function.load_state_dict(checkpoint)
 
 
-<<<<<<< HEAD
 score_function = score_function.to(device=device)
-=======
-samples = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
->>>>>>> main
 samples = samples.to(device=device)
 
 train = True
@@ -74,11 +51,7 @@ train = False
 def generate_samples(score_network: torch.nn.Module, nsamples: int) -> torch.Tensor:
     x_t = torch.randn((nsamples, 2))
     time_pts = torch.linspace(1, 0, 1000)
-<<<<<<< HEAD
-    beta = lambda t:  beta(t)
-=======
     beta = lambda t: beta(t)
->>>>>>> main
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
@@ -95,7 +68,6 @@ if train:
     plt.plot(np.linspace(1,len(errors),len(errors)),errors)
     plt.show()
 else:
-<<<<<<< HEAD
     generatedSamplesFFT = generate_samples(score_network=score_function, nsamples=1000)
 
     # plt.scatter(samples[:,0],samples[:,1],color='red')
@@ -113,16 +85,4 @@ else:
 
     plt.scatter(samplesBeforeFFT[:,0],samplesBeforeFFT[:,1],color='red')
     plt.scatter(generatedSamples[:,0].real,generatedSamples[:,1].real,color='blue')
-=======
-    generatedSamples = generate_samples(score_network=score_function, nsamples=1000)
-
-
-    ab = torch.ones(1000) / 1000
-    realPart = generatedSamples.real.type(torch.double)
-    M = ot.dist(samples,realPart, metric='euclidean')
-    print(ot.emd2(ab,ab,M))
-
-    plt.scatter(samples[:,0],samples[:,1], color='red')
-    plt.scatter(generatedSamples[:,0],generatedSamples[:,1])
->>>>>>> main
     plt.show()
