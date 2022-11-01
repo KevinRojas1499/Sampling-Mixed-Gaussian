@@ -26,4 +26,9 @@ def get_samples_from_mixed_gaussian(c,means,variances,num_samples):
     for i in range(num_samples):
         idx = bisect_left(accum,np.random.rand(1)[0])
         samples.append(get_sample_from_multi_gaussian(lambda_=lambdas[idx],gamma_=gamma[idx],mean=means[idx]))
+<<<<<<< HEAD
     return samples
+=======
+    return samples
+
+>>>>>>> main
