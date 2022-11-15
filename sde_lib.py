@@ -2,11 +2,9 @@ import abc
 import torch
 
 class SDE(abc.ABC):
-  def __init__(self, N,T, beta):
+  def __init__(self):
     # Right now I just assume thhe function is beta*t
     super().__init__()
-    self.N = N
-    self.T = T
 
   @abc.abstractmethod
   def marginal_prob_mean(self, x, t):
@@ -23,6 +21,7 @@ class LinearSDE(SDE):
   def __init__(self,beta):
     self.f = lambda x,t : -beta*t*x/2
     self.g = lambda t : (beta*t)**.5
+    self.T = 1
     self.beta = beta
 
 
@@ -36,7 +35,7 @@ class LinearSDE(SDE):
     
 
   def generate_samples_reverse(self, score_network: torch.nn.Module, nsamples: int) -> torch.Tensor:
-      x_t = torch.randn((nsamples, 2))
+      x_t = torch.randn((nsamples, 4))
       time_pts = torch.linspace(1, 0, 1000)
       beta = lambda t: beta(t)
       for i in range(len(time_pts) - 1):
