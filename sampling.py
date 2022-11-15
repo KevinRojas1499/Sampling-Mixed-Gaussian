@@ -17,7 +17,6 @@ c = [1/2,1/6,1/3]
 means = [[0.5,0.5],[-15,15], [8,8]]
 variances = [[[1,0],[0,1]], [[5, -2],[-2,5]] , [[1, 2],[2,1]]]
 
-
 sde = sde_lib.LinearSDE(beta=20)
 samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
@@ -53,11 +52,13 @@ else:
 
     generatedSamples = torch.fft.ifft(generatedSamplesFFT,norm="forward")
 
-    # ab = torch.ones(1000) / 1000
-    # realPart = generatedSamplesFFT.real.type(torch.double)
-    # M = ot.dist(samples,realPart, metric='euclidean')
-    # print(ot.emd2(ab,ab,M))
+    realPart = generatedSamples.real.type(torch.double)
+    ab = torch.ones(1000) / 1000
+    M = ot.dist(samplesBeforeFFT,realPart, metric='euclidean')
+    print(samplesBeforeFFT.size(),realPart.size())
+    print(ot.emd2(ab,ab,M))
 
-    plt.scatter(samples[:,0],samples[:,1], color='red')
-    plt.scatter(generatedSamplesFFT[:,0],generatedSamplesFFT[:,1])
+
+    plt.scatter(samplesBeforeFFT[:,0],samplesBeforeFFT[:,1],color='red')
+    plt.scatter(generatedSamples[:,0].real,generatedSamples[:,1].real,color='blue')
     plt.show()
