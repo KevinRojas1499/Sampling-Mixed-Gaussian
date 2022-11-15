@@ -53,10 +53,10 @@ else:
 
     generatedSamples = torch.fft.ifft(generatedSamplesFFT,norm="forward")
 
-    ab = torch.ones(1000) / 1000
-    realPart = generatedSamplesFFT.real.type(torch.double)
-    M = ot.dist(samples,realPart, metric='euclidean')
-    print(ot.emd2(ab,ab,M))
+    # ab = torch.ones(1000) / 1000
+    # realPart = generatedSamplesFFT.real.type(torch.double)
+    # M = ot.dist(samples,realPart, metric='euclidean')
+    # print(ot.emd2(ab,ab,M))
 
     plt.scatter(samples[:,0],samples[:,1], color='red')
     plt.scatter(generatedSamplesFFT[:,0],generatedSamplesFFT[:,1])
