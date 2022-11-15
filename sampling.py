@@ -1,4 +1,5 @@
 from cmath import sqrt
+from turtle import color
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
@@ -21,14 +22,18 @@ sde = sde_lib.LinearSDE(beta=20)
 samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 samples = torch.fft.fft(samplesBeforeFFT,norm="forward")
 
+
+# plt.scatter(samples[:,0],samples[:,1],color='red')
+# plt.show()
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 device = 'cpu'
 score_function = model.Score(2)
-checkpoint = torch.load('./coefficientsNoFFT.pth')
+checkpoint = torch.load('./coefficientsFFT.pth')
 score_function.load_state_dict(checkpoint)
-score_function.to(device=device)
 
 
-samples = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
+score_function = score_function.to(device=device)
 samples = samples.to(device=device)
 
 train = True
@@ -36,12 +41,17 @@ train = False
 
 
 if train:
-    errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001)
+    errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001,device=device)
     plt.plot(np.linspace(1,len(errors),len(errors)),errors)
     plt.show()
 else:
     generatedSamplesFFT = sde.generate_samples_reverse(score_network=score_function, nsamples=1000)
 
+    # plt.scatter(samples[:,0],samples[:,1],color='red')
+    # plt.scatter(generatedSamplesFFT[:,0],generatedSamplesFFT[:,1],color='blue')
+    # plt.show()
+
+    generatedSamples = torch.fft.ifft(generatedSamplesFFT,norm="forward")
 
     ab = torch.ones(1000) / 1000
     realPart = generatedSamplesFFT.real.type(torch.double)
