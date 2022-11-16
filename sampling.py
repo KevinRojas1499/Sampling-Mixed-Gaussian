@@ -2,7 +2,7 @@ from cmath import sqrt
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import sde_lib 
+import sde_lib
 import model
 import training
 import ot
@@ -37,7 +37,7 @@ score_function.to(device=device)
 samples = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 samples = samples.to(device=device)
 
-train = True
+#train = True
 train = False
 
 
@@ -62,6 +62,7 @@ if train:
     plt.show()
 else:
     generatedSamples = generate_samples(score_network=score_function, nsamples=1000)
+    print(generatedSamples.type())
 
 
     ab = torch.ones(1000) / 1000
@@ -72,3 +73,4 @@ else:
     plt.scatter(samples[:,0],samples[:,1], color='red')
     plt.scatter(generatedSamples[:,0],generatedSamples[:,1])
     plt.show()
+    plt.savefig("samples.png")
