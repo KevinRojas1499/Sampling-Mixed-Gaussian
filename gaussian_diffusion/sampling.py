@@ -41,12 +41,6 @@ if fft:
 # plt.title("simple 3D scatter plot")
 # plt.show()
 
-<<<<<<< HEAD:gaussian_diffusion/sampling.py
-#train = True
-train = False
-=======
->>>>>>> a9af839f5efa86a40d393cba3e1025f930942c8a:sampling.py
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
 print(device)
@@ -70,10 +64,6 @@ train = True
 if train:
     errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001, fileToSave=checkpointPath, device=device)
 else:
-<<<<<<< HEAD:gaussian_diffusion/sampling.py
-    generatedSamples = generate_samples(score_network=score_function, nsamples=1000)
-    print(generatedSamples.type())
-=======
     generatedSamples = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000)
     
     if fft:
@@ -99,21 +89,13 @@ else:
 
     # plt.scatter(samplesBeforeFFT[:,0],samplesBeforeFFT[:,1],color='red')
     # plt.scatter(generatedSamples[:,0].real,generatedSamples[:,1].real,color='blue')
->>>>>>> a9af839f5efa86a40d393cba3e1025f930942c8a:sampling.py
 
 
     fig = plt.figure(figsize = (10, 7))
     ax = plt.axes(projection ="3d")
 
-<<<<<<< HEAD:gaussian_diffusion/sampling.py
-    plt.scatter(samples[:,0],samples[:,1], color='red')
-    plt.scatter(generatedSamples[:,0],generatedSamples[:,1])
-    plt.show()
-    plt.savefig("samples.png")
-=======
     ax.scatter3D(samplesBeforeFFT[:,0], samplesBeforeFFT[:,1], samplesBeforeFFT[:,2], color = "green")
     ax.scatter3D(generatedSamples[:,0], generatedSamples[:,1], generatedSamples[:,2], color = "blue")
     
     plt.title("simple 3D scatter plot")
     plt.show()
->>>>>>> a9af839f5efa86a40d393cba3e1025f930942c8a:sampling.py

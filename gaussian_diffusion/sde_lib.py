@@ -4,13 +4,7 @@ import numpy as np
 
 
 class SDE(abc.ABC):
-<<<<<<< HEAD:gaussian_diffusion/sde_lib.py
-  #In reality im doing this for a specific SDE
-  def __init__(self, N, T, beta):
-    # Right now I just assume thhe function is beta*t
-=======
   def __init__(self):
->>>>>>> a9af839f5efa86a40d393cba3e1025f930942c8a:sde_lib.py
     super().__init__()
 
   @abc.abstractmethod
@@ -33,14 +27,8 @@ class LinearSDE(SDE):
 
 
   def marginal_prob_mean(self, x0, t):
-<<<<<<< HEAD:gaussian_diffusion/sde_lib.py
-    alpha = self.beta
-    var = torch.exp(-alpha*t*t/4).squeeze()
-    return var.view(x0.shape[0], 1, 1, 1) * x0 #torch.mul(var, x0)
-=======
     var = torch.exp(-self.beta*t*t/4)
     return torch.mul(var,x0)
->>>>>>> a9af839f5efa86a40d393cba3e1025f930942c8a:sde_lib.py
 
   def marginal_prob_var(self, t):
     var = torch.exp(-self.beta*t*t/4)
