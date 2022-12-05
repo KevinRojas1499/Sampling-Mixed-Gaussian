@@ -19,7 +19,8 @@ from timeit import default_timer
 
 class SpectralConv2d(nn.Module):
     def __init__(self, in_channels, out_channels, modes1, modes2):
-        super(SpectralConv2d, self).__init__()
+        super().__init__()
+        print("Initializing spectral conv")
 
         """
         2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
@@ -43,7 +44,6 @@ class SpectralConv2d(nn.Module):
         batchsize = x.shape[0]
         #Compute Fourier coeffcients up to factor of e^(- something constant)
         x_ft = torch.fft.rfft2(x)
-
         # Multiply relevant Fourier modes
         out_ft = torch.zeros(batchsize, self.out_channels,  x.size(-2), x.size(-1)//2 + 1, dtype=torch.cfloat, device=x.device)
         out_ft[:, :, :self.modes1, :self.modes2] = \
@@ -53,7 +53,8 @@ class SpectralConv2d(nn.Module):
 
         #Return to physical space
         x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
-        return x
+        # TODO(dahoas): How to handle with complex remanant?
+        return x.real
 
 
 ########################################################################
@@ -196,10 +197,8 @@ class ResnetBlock2D(nn.Module):
     ):
         super().__init__()
         self.pre_norm = pre_norm
-        self.pre_norm = True
         self.in_channels = in_channels
-        out_channels = in_channels if out_channels is None else out_channels
-        self.out_channels = out_channels
+        self.out_channels = in_channels if out_channels is None else out_channels
         self.use_conv_shortcut = conv_shortcut
         self.time_embedding_norm = time_embedding_norm
         self.up = up
@@ -211,7 +210,10 @@ class ResnetBlock2D(nn.Module):
 
         self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
 
-        self.conv1 = torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        # Changed to spectral conv
+        # TODO(dahoas): remove mode hardcoding
+        self.conv1 = SpectralConv2d(in_channels, out_channels, 64 // 2 + 1, 64 // 2 + 1)
+        #torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
         if temb_channels is not None:
             self.time_emb_proj = torch.nn.Linear(temb_channels, out_channels)
@@ -220,7 +222,10 @@ class ResnetBlock2D(nn.Module):
 
         self.norm2 = torch.nn.GroupNorm(num_groups=groups_out, num_channels=out_channels, eps=eps, affine=True)
         self.dropout = torch.nn.Dropout(dropout)
-        self.conv2 = torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        # Changed to spectral conv
+        # TODO(dahoas): remove mode hardcoding
+        self.conv2 = SpectralConv2d(in_channels, out_channels,  64 // 2 + 1, 64 // 2 + 1)
+        #torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
         if non_linearity == "swish":
             self.nonlinearity = lambda x: F.silu(x)
@@ -254,6 +259,9 @@ class ResnetBlock2D(nn.Module):
             self.conv_shortcut = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1, padding=0)
 
     def forward(self, input_tensor, temb):
+        """
+        Up/Down sampling followed by two convolutions
+        """
         hidden_states = input_tensor
 
         hidden_states = self.norm1(hidden_states)
