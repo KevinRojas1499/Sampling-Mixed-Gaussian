@@ -2,7 +2,7 @@ import torch
 import time
 
 
-def train(sde, score_model, number_of_steps, data, device):
+def train(sde, score_model, number_of_steps, data, fileToSave, device):
   # optimizer = torch.optim.SGD(score_model.parameters(),lr=0.01)
   optimizer = torch.optim.Adam(score_model.parameters(), lr=3e-4)
   errors = []
@@ -16,7 +16,7 @@ def train(sde, score_model, number_of_steps, data, device):
     if(i%10000 == 0):
       print(f"Step number {i} ({time.time() - t0}s) \nError : {loss}")
       errors.append(loss)
-      torch.save(score_model.state_dict(), 'coefficientsFFT.pth')
+      torch.save(score_model.state_dict(), fileToSave)
   return errors
 
 

@@ -14,7 +14,6 @@ class Score(nn.Module):
         self.final_score = nn.Linear(nodes[2], n)
 
     def forward(self, x,t):
-        
         x = torch.cat((x,t),dim=-1)
         x = x.float()
         
