@@ -2,7 +2,6 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-from torch import vmap
 import sde_lib 
 import model
 import training
@@ -35,16 +34,26 @@ methods = ['normal','fft']
 def getTransform(ft):
   a = []
   for c in ft:
-    print(c)
     a.append(torch.real(c))
     if torch.imag(c).item() != 0 :
         a.append(torch.imag(c))
   return torch.tensor(a)
 
-samples = torch.fft.rfft(samplesBeforeFFT,norm="forward")
-vectorized_trans = torch.vmap(getTransform)
-samples = vectorized_trans(samples)
-print(samples)
+def getInverseTransform(ft,dim):
+    n  = ft.shape[0]
+    newT = torch.zeros(dim,dtype=torch.cfloat)
+    k = 0
+    for i,val in enumerate(ft):
+        if i == 0:
+            newT[k] = val
+            k+=1
+            continue
+        if(i%2 == 1):
+            newT[k] += val 
+        else :
+            newT[k] += torch.complex(torch.tensor(0.),val)
+            k+=1
+    return newT
 
 def train_all():
     for method in methods:
@@ -52,8 +61,8 @@ def train_all():
         if method == 'fft':
             # Move to frequency space and train both real and imaginary
             samples = torch.fft.rfft(samplesBeforeFFT,norm="forward")
-            vectorized_trans = torch.vmap(getTransform)
-            samples = vectorized_trans(samples)
+            for i,sample in enumerate(samples):
+                samples[i] =  getTransform(sample)
 
         dim = samples.shape[1]
 
@@ -63,7 +72,7 @@ def train_all():
 
         checkpointPath = path+method
         if os.path.exists(checkpointPath):
-            checkpoint = torch.load(checkpointPath)
+            checkpoint = torch.load(checkpointPath,map_location=torch.device('cpu'))
             score_function.load_state_dict(checkpoint)
 
 
@@ -85,7 +94,7 @@ def sample(method,dim):
         checkpointPath = path+'normal'
 
     if os.path.exists(checkpointPath):
-        checkpoint = torch.load(checkpointPath)
+        checkpoint = torch.load(checkpointPath,map_location=torch.device('cpu'))
         score_function.load_state_dict(checkpoint)
 
     score_function = score_function.to(device=device)
@@ -134,7 +143,7 @@ def dualPlot(samples1, samples2,title):
 
 # for method in methods:
 #     np.random.seed(2)
-#     newSamples = sample(method)
+#     newSamples = sample(method,2)
 #     title = "Diffusion using "+method
 #     # dual3DPlot(samplesBeforeFFT,newSamples, title)
 #     dualPlot(samplesBeforeFFT,newSamples,title)
@@ -154,9 +163,11 @@ def fourierSample2D():
 
 def fourierSample3D():
     newSamples = sample('sampleFourier',3)
-
+    for i , samp in enumerate(newSamples):
+        newSamples[i] = torch.fft.irfft(getInverseTransform(samp,3))
     title = "Diffusion using "
     dual3DPlot(samplesBeforeFFT,newSamples,title)
 
 fourierSample3D()
 fourierSample2D()
+# dualPlot()

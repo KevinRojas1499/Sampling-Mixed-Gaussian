@@ -53,21 +53,30 @@ class LinearSDE(SDE):
   
   def generate_samples_reverse_fft(self, score_network: torch.nn.Module, dimension, nsamples: int) -> torch.Tensor:
     # This score function is in the data space
-    device = 'cuda'
+    device = 'cpu'
     x_t = torch.randn((nsamples, dimension),device=device)
     time_pts = torch.linspace(1, 0, 1000).to(device)
     beta = lambda t: beta(t)
 
-    jacobianOfFourierTransform = torch.linalg.inv(getJacobianOfFourierTransform(dimension).to(device=device,dtype=torch.float))
-    # jacobianOfFourierTransform = getJacobianOfFourierTransform(dimension).to(device=device,dtype=torch.float)
+    # jacobianOfFourierTransform = torch.linalg.inv(getJacobianOfFourierTransform(dimension).to(device=device,dtype=torch.float))
+    jacobianOfFourierTransform = getJacobianOfFourierTransform(dimension).to(device=device,dtype=torch.float)
     
-    print(jacobianOfFourierTransform)
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
         
-        x_fourier_t = torch.tensor([ getTransform(x) for x in torch.fft.irfft(x_t,norm="forward",n=dimension).to(device=device) ]).to(device)
-        score = score_network(x_fourier_t,t.expand(x_fourier_t.shape[0], 1)).detach() @ jacobianOfFourierTransform
+        x_fourier_t = torch.zeros_like(x_t)
+        for i, el in enumerate(x_fourier_t):
+          x_fourier_t[i] = torch.fft.irfft(getInverseTransform(el,dimension),norm="forward",n=dimension)  
+        x_fourier_t = x_fourier_t.to(device)
+
+
+        for i, sample in enumerate(x_fourier_t):
+          x_fourier_t[i] = getTransform(sample)
+        # A^-1 y
+        score = score_network(x_fourier_t,t.expand(x_fourier_t.shape[0], 1)).detach() 
+        for i , el in enumerate(score):
+          score[i] = getTransform(torch.fft.rfft(el)) #A*score
 
         tot_drift = self.f(x_t,t) - self.g(t)**2 * score
         tot_diffusion = self.g(t)
@@ -89,8 +98,23 @@ def getJacobianOfFourierTransform(dimension):
 def getTransform(ft):
   a = []
   for c in ft:
-    print(c)
     a.append(torch.real(c))
-    if torch.imag(c).item() != 0 :
+    if c.is_complex() and torch.imag(c).item() != 0 :
         a.append(torch.imag(c))
   return torch.tensor(a)
+
+def getInverseTransform(ft,dim):
+    n  = ft.shape[0]
+    newT = torch.zeros(dim,dtype=torch.cfloat)
+    k = 0
+    for i,val in enumerate(ft):
+        if i == 0:
+            newT[k] = val
+            k+=1
+            continue
+        if(i%2 == 1):
+            newT[k] += val 
+        else :
+            newT[k] += torch.complex(torch.tensor(0.),val)
+            k+=1
+    return newT
