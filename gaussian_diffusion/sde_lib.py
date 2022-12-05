@@ -53,22 +53,18 @@ class LinearSDE(SDE):
   
   def generate_samples_reverse_fft(self, score_network: torch.nn.Module, dimension, nsamples: int) -> torch.Tensor:
     # This score function is in the data space
-    device = 'cpu'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     x_t = torch.randn((nsamples, dimension),device=device)
     time_pts = torch.linspace(1, 0, 1000).to(device)
     beta = lambda t: beta(t)
 
-    # jacobianOfFourierTransform = torch.linalg.inv(getJacobianOfFourierTransform(dimension).to(device=device,dtype=torch.float))
-    jacobianOfFourierTransform = getJacobianOfFourierTransform(dimension).to(device=device,dtype=torch.float)
-    
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
         
-        x_fourier_t = torch.zeros_like(x_t)
+        x_fourier_t = torch.zeros_like(x_t,device=device)
         for i, el in enumerate(x_t):
           x_fourier_t[i] = torch.fft.irfft(getInverseTransform(el,dimension),norm="forward",n=dimension)  
-        x_fourier_t = x_fourier_t.to(device)
 
 
         for i, sample in enumerate(x_fourier_t):
@@ -76,7 +72,7 @@ class LinearSDE(SDE):
         # A^-1 y
         score = score_network(x_fourier_t,t.expand(x_fourier_t.shape[0], 1)).detach() 
         for i , el in enumerate(score):
-          score[i] = getTransform(torch.fft.rfft(el)) #A*score
+          score[i] = getTransform(torch.fft.rfft(el,norm="forward")) #A*score
 
         tot_drift = self.f(x_t,t) - self.g(t)**2 * score
         tot_diffusion = self.g(t)
@@ -104,17 +100,17 @@ def getTransform(ft):
   return torch.tensor(a)
 
 def getInverseTransform(ft,dim):
-    n  = ft.shape[0]
-    newT = torch.zeros(dim,dtype=torch.cfloat)
-    k = 0
-    for i,val in enumerate(ft):
-        if i == 0:
-            newT[k] = val
-            k+=1
-            continue
-        if(i%2 == 1):
-            newT[k] += val 
-        else :
-            newT[k] += torch.complex(torch.tensor(0.),val)
-            k+=1
-    return newT
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  newT = torch.zeros(dim,dtype=torch.cfloat,device=device)
+  k = 0
+  for i,val in enumerate(ft):
+      if i == 0:
+          newT[k] = val
+          k+=1
+          continue
+      if(i%2 == 1):
+          newT[k] += val 
+      else :
+          newT[k] += torch.complex(torch.tensor(0.,device='cuda'),val)
+          k+=1
+  return newT

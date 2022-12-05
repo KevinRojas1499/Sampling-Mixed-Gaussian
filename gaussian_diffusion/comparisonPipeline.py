@@ -72,7 +72,7 @@ def train_all():
 
         checkpointPath = path+method
         if os.path.exists(checkpointPath):
-            checkpoint = torch.load(checkpointPath,map_location=torch.device('cpu'))
+            checkpoint = torch.load(checkpointPath)
             score_function.load_state_dict(checkpoint)
 
 
@@ -85,7 +85,7 @@ def train_all():
 
 def sample(method,dim):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+    print(device)
     score_function = model.Score(dim)
     path = './checkpoints/' if dim == 3 else './checkpoints2D/'
     checkpointPath = path+method
@@ -94,7 +94,7 @@ def sample(method,dim):
         checkpointPath = path+'normal'
 
     if os.path.exists(checkpointPath):
-        checkpoint = torch.load(checkpointPath,map_location=torch.device('cpu'))
+        checkpoint = torch.load(checkpointPath)
         score_function.load_state_dict(checkpoint)
 
     score_function = score_function.to(device=device)
