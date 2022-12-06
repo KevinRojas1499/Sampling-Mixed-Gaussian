@@ -66,7 +66,7 @@ class LinearSDE(SDE):
         dt = time_pts[i + 1] - t
         
         x_fourier_t = torch.zeros_like(x_t)
-        for i, el in enumerate(x_fourier_t):
+        for i, el in enumerate(x_t):
           x_fourier_t[i] = torch.fft.irfft(getInverseTransform(el,dimension),norm="forward",n=dimension)  
         x_fourier_t = x_fourier_t.to(device)
 
