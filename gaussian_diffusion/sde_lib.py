@@ -36,7 +36,7 @@ class LinearSDE(SDE):
 
 
   def generate_samples_reverse(self, score_network: torch.nn.Module, dimension, nsamples: int) -> torch.Tensor:
-    device = 'cuda'
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     x_t = torch.randn((nsamples, dimension),device=device)
     time_pts = torch.linspace(1, 0, 1000).to(device)
     beta = lambda t: beta(t)
