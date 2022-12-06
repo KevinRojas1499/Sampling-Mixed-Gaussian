@@ -85,11 +85,9 @@ def train_all():
 
 def sample(method,dim):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print(device)
     score_function = model.Score(dim)
     path = './checkpoints/' if dim == 3 else './checkpoints2D/'
     checkpointPath = path+method
-    print(method)
     if method == 'sampleFourier':
         checkpointPath = path+'normal'
 
@@ -103,8 +101,8 @@ def sample(method,dim):
     else: 
         generatedSamples = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000)
 
-    if method != 'normal':
-        generatedSamples = torch.fft.irfft(generatedSamples,norm="forward")
+    # if method != 'normal':
+    #     generatedSamples = torch.fft.irfft(generatedSamples,norm="forward")
     
     generatedSamples = generatedSamples.to('cpu')
     return generatedSamples
@@ -114,7 +112,6 @@ def plot3D(samples,ax,title):
     ax.scatter3D(samples[:,0], samples[:,1], samples[:,2], color = "green")
     plt.title(title)
     
-
 def dual3DPlot(samples1,samples2,title):    
     fig = plt.figure()
     fig.suptitle(title)
@@ -154,8 +151,11 @@ def dualPlot(samples1, samples2,title):
 
 def fourierSample2D():
     newSamples = sample('sampleFourier',2)
+    for i , samp in enumerate(newSamples):
+        newSamples[i] = torch.fft.irfft(getInverseTransform(samp,2),norm="forward")
     title = "Diffusion using "
     dualPlot(samplesBeforeFFT,newSamples,title)
+
     realPart = newSamples.real.type(torch.double)
     ab = torch.ones(1000) / 1000
     M = ot.dist(samplesBeforeFFT,realPart, metric='euclidean')
@@ -164,7 +164,7 @@ def fourierSample2D():
 def fourierSample3D():
     newSamples = sample('sampleFourier',3)
     for i , samp in enumerate(newSamples):
-        newSamples[i] = torch.fft.irfft(getInverseTransform(samp,3))
+        newSamples[i] = torch.fft.irfft(getInverseTransform(samp,3),n=3,norm="forward")
     title = "Diffusion using "
     dual3DPlot(samplesBeforeFFT,newSamples,title)
 

@@ -55,22 +55,19 @@ class LinearSDE(SDE):
     # This score function is in the data space
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     x_t = torch.randn((nsamples, dimension),device=device)
-    time_pts = torch.linspace(1, 0, 1000).to(device)
+    time_pts = torch.linspace(1, 0, 100).to(device)
     beta = lambda t: beta(t)
 
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
         
-        x_fourier_t = torch.zeros_like(x_t,device=device)
+        x_data_t = torch.zeros_like(x_t,device=device)
         for i, el in enumerate(x_t):
-          x_fourier_t[i] = torch.fft.irfft(getInverseTransform(el,dimension),norm="forward",n=dimension)  
-
-
-        for i, sample in enumerate(x_fourier_t):
-          x_fourier_t[i] = getTransform(sample)
+          x_data_t[i] = torch.fft.irfft(getInverseTransform(el,dimension),norm="forward",n=dimension)  
         # A^-1 y
-        score = score_network(x_fourier_t,t.expand(x_fourier_t.shape[0], 1)).detach() 
+
+        score = score_network(x_data_t,t.expand(x_data_t.shape[0], 1)).detach() 
         for i , el in enumerate(score):
           score[i] = getTransform(torch.fft.rfft(el,norm="forward")) #A*score
 
@@ -80,16 +77,6 @@ class LinearSDE(SDE):
         # euler-maruyama step
         x_t = x_t + tot_drift * dt + tot_diffusion * torch.randn_like(x_t) * torch.abs(dt) ** 0.5
     return x_t
-
-def getJacobianOfFourierTransform(dimension):
-  jacobianOfFourierTransform = torch.zeros((dimension,dimension))
-  for i in range(dimension):
-    for j in range(dimension):
-      if i%2 == 1 or i == 0:
-          jacobianOfFourierTransform[i,j] = np.cos(2*np.pi*i*j/dimension)
-      else:
-          jacobianOfFourierTransform[i,j] = np.sin(2*np.pi*i*j/dimension)
-  return jacobianOfFourierTransform
 
 def getTransform(ft):
   a = []
