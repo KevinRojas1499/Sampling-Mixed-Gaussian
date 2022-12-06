@@ -13,7 +13,7 @@ num_samples = 1000
 
 # 3D Example
 c = [1/3,1/4,1/5,1/6,1/20]
-means = [[0.5,0.5,0.5],[-15,-20,0], [30,10,20],[-3,-3,-3],[-6,-15,10]]
+means = [[40,40,0.],[-15,-20,0], [30,10,20],[-3,-3,-3],[0,0,0]]
 variances = [[[1,0,0],[0,1,0],[0,0,1]], [[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]],[[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]]]
 
 
@@ -40,36 +40,36 @@ def getTransform(ft):
   return torch.tensor(a)
 
 def getInverseTransform(ft,dim):
-    n  = ft.shape[0]
-    newT = torch.zeros(dim,dtype=torch.cfloat)
-    k = 0
-    for i,val in enumerate(ft):
-        if i == 0:
-            newT[k] = val
-            k+=1
-            continue
-        if(i%2 == 1):
-            newT[k] += val 
-        else :
-            newT[k] += torch.complex(torch.tensor(0.),val)
-            k+=1
-    return newT
+  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+  newT = torch.zeros(dim,dtype=torch.cfloat,device=device)
+  k = 0
+  for i,val in enumerate(ft):
+      if i == 0:
+          newT[k] = val
+          k+=1
+          continue
+      if(i%2 == 1):
+          newT[k] += val 
+      else :
+          newT[k] += torch.complex(torch.tensor(0.,device=device),val)
+          k+=1
+  return newT
 
 def train_all():
     for method in methods:
         samples = samplesBeforeFFT
+        dim = samples.shape[1]
         if method == 'fft':
             # Move to frequency space and train both real and imaginary
-            samples = torch.fft.rfft(samplesBeforeFFT,norm="forward")
+            samples = torch.fft.rfft(samplesBeforeFFT,n=dim, norm="forward")
             for i,sample in enumerate(samples):
                 samples[i] =  getTransform(sample)
-
-        dim = samples.shape[1]
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         score_function = model.Score(dim)
 
+        path = './checkpoints/' if dim == 3 else './checkpoints2D/'
         checkpointPath = path+method
         if os.path.exists(checkpointPath):
             checkpoint = torch.load(checkpointPath)
@@ -101,9 +101,10 @@ def sample(method,dim):
     else: 
         generatedSamples = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000)
 
-    # if method != 'normal':
-    #     generatedSamples = torch.fft.irfft(generatedSamples,norm="forward")
-    
+    if method != 'normal':
+        for i , samp in enumerate(generatedSamples):
+            generatedSamples[i] = torch.fft.irfft(getInverseTransform(samp,dim),n=dim,norm="forward")
+        
     generatedSamples = generatedSamples.to('cpu')
     return generatedSamples
 
@@ -151,8 +152,6 @@ def dualPlot(samples1, samples2,title):
 
 def fourierSample2D():
     newSamples = sample('sampleFourier',2)
-    for i , samp in enumerate(newSamples):
-        newSamples[i] = torch.fft.irfft(getInverseTransform(samp,2),norm="forward")
     title = "Diffusion using "
     dualPlot(samplesBeforeFFT,newSamples,title)
 
@@ -163,8 +162,6 @@ def fourierSample2D():
 
 def fourierSample3D():
     newSamples = sample('sampleFourier',3)
-    for i , samp in enumerate(newSamples):
-        newSamples[i] = torch.fft.irfft(getInverseTransform(samp,3),n=3,norm="forward")
     title = "Diffusion using "
     dual3DPlot(samplesBeforeFFT,newSamples,title)
 
