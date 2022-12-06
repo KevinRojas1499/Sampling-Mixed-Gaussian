@@ -33,7 +33,7 @@ class LinearSDE(SDE):
   def marginal_prob_var(self, t):
     var = torch.exp(-self.beta*t*t/4)
     return 1-var
-    
+
 
   def generate_samples_reverse(self, score_network: torch.nn.Module, dimension, nsamples: int) -> torch.Tensor:
     device = 'cuda'

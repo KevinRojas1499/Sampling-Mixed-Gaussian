@@ -2,7 +2,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
-import sde_lib 
+import sde_lib
 import model
 import training
 import ot
@@ -40,7 +40,6 @@ if fft:
 # ax.scatter3D(samplesBeforeFFT[:,0], samplesBeforeFFT[:,1], samplesBeforeFFT[:,2], color = "green")
 # plt.title("simple 3D scatter plot")
 # plt.show()
-
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = 'cpu'
