@@ -111,6 +111,6 @@ def getInverseTransform(ft,dim):
       if(i%2 == 1):
           newT[k] += val 
       else :
-          newT[k] += torch.complex(torch.tensor(0.,device='cuda'),val)
+          newT[k] += torch.complex(torch.tensor(0.,device=device),val)
           k+=1
   return newT
