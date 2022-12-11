@@ -17,10 +17,30 @@ from functools import partial
 from timeit import default_timer
 
 
+"""
+@author: Zongyi Li
+This file is the Fourier Neural Operator for 2D problem such as the Darcy Flow discussed in Section 5.2 in the [paper](https://arxiv.org/pdf/2010.08895.pdf).
+"""
+
+import numpy as np
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.nn.parameter import Parameter
+
+import operator
+from functools import reduce
+from functools import partial
+
+from timeit import default_timer
+
+
+################################################################
+# fourier layer
+################################################################
 class SpectralConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, modes1, modes2):
-        super().__init__()
-        print("Initializing spectral conv")
+    def __init__(self, in_channels, out_channels, modes1, modes2, verbose=False):
+        super(SpectralConv2d, self).__init__()
 
         """
         2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
@@ -31,30 +51,35 @@ class SpectralConv2d(nn.Module):
         self.modes1 = modes1 #Number of Fourier modes to multiply, at most floor(N/2) + 1
         self.modes2 = modes2
 
+        self.verbose = verbose
+
         self.scale = (1 / (in_channels * out_channels))
-        self.weights1 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
-        self.weights2 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, dtype=torch.cfloat))
+        self.weights1 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
+        self.weights2 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
 
     # Complex multiplication
     def compl_mul2d(self, input, weights):
-        # (batch, in_channel, x,y ), (in_channel, out_channel, x,y) -> (batch, out_channel, x,y)
-        return torch.einsum("bixy,ioxy->boxy", input, weights)
+        # (batch, in_channel, x,y), (in_channel, out_channel, x,y) -> (batch, out_channel, x,y)
+        return torch.einsum("bixyt,ioxyt->boxyt", input, weights)
 
     def forward(self, x):
+        print(x.shape, self.weights1.shape) if self.verbose else None
         batchsize = x.shape[0]
         #Compute Fourier coeffcients up to factor of e^(- something constant)
         x_ft = torch.fft.rfft2(x)
+        x_ft = torch.view_as_real(x_ft)
+
         # Multiply relevant Fourier modes
-        out_ft = torch.zeros(batchsize, self.out_channels,  x.size(-2), x.size(-1)//2 + 1, dtype=torch.cfloat, device=x.device)
-        out_ft[:, :, :self.modes1, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
+        out_ft = torch.zeros((batchsize, self.out_channels,  x.size(-3), x.size(-2)//2 + 1, 2), device=x.device)
+        out_ft[:, :, :self.modes1, :self.modes2, :] = \
+            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2, :], self.weights1)
         out_ft[:, :, -self.modes1:, :self.modes2] = \
             self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
 
         #Return to physical space
+        out_ft = torch.view_as_complex(out_ft)
         x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
-        # TODO(dahoas): How to handle with complex remanant?
-        return x.real
+        return x
 
 
 ########################################################################
@@ -194,6 +219,8 @@ class ResnetBlock2D(nn.Module):
         use_in_shortcut=None,
         up=False,
         down=False,
+        samples=64,
+        verbose=False,
     ):
         super().__init__()
         self.pre_norm = pre_norm
@@ -212,7 +239,7 @@ class ResnetBlock2D(nn.Module):
 
         # Changed to spectral conv
         # TODO(dahoas): remove mode hardcoding
-        self.conv1 = SpectralConv2d(in_channels, out_channels, 64 // 2 + 1, 64 // 2 + 1)
+        self.conv1 = SpectralConv2d(in_channels, out_channels, samples // 2 + 1, samples // 2 + 1, verbose=verbose)
         #torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
         if temb_channels is not None:
@@ -224,7 +251,7 @@ class ResnetBlock2D(nn.Module):
         self.dropout = torch.nn.Dropout(dropout)
         # Changed to spectral conv
         # TODO(dahoas): remove mode hardcoding
-        self.conv2 = SpectralConv2d(in_channels, out_channels,  64 // 2 + 1, 64 // 2 + 1)
+        self.conv2 = SpectralConv2d(out_channels, out_channels,  samples // 2 + 1, samples // 2 + 1, verbose=verbose)
         #torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
         if non_linearity == "swish":
@@ -314,6 +341,8 @@ class FNODownBlock2D(nn.Module):
         output_scale_factor=1.0,
         add_downsample=True,
         downsample_padding=1,
+        samples=64,
+        verbose=False,
         **kwargs,
     ):
         super().__init__()
@@ -333,6 +362,8 @@ class FNODownBlock2D(nn.Module):
                     non_linearity=resnet_act_fn,
                     output_scale_factor=output_scale_factor,
                     pre_norm=resnet_pre_norm,
+                    samples=samples,
+                    verbose=verbose,
                 )
             )
 
@@ -395,6 +426,8 @@ class FNOUpBlock2D(nn.Module):
         resnet_pre_norm: bool = True,
         output_scale_factor=1.0,
         add_upsample=True,
+        samples=64,
+        verbose=False,
         **kwargs,
     ):
         super().__init__()
@@ -416,6 +449,8 @@ class FNOUpBlock2D(nn.Module):
                     non_linearity=resnet_act_fn,
                     output_scale_factor=output_scale_factor,
                     pre_norm=resnet_pre_norm,
+                    samples=samples,
+                    verbose=verbose,
                 )
             )
 

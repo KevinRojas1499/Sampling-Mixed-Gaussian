@@ -4,18 +4,18 @@ out_channels: 3
 layers_per_block: 2
 block_out_channels: [128, 128, 256, 256, 512, 512]
 down_block_types: [
-    "FNODownBlock2D",
-    "FNODownBlock2D",
-    "FNODownBlock2D",
-    "FNODownBlock2D",
+    "DownBlock2D",
+    "DownBlock2D",
+    "DownBlock2D",
+    "DownBlock2D",
     "AttnDownBlock2D",
-    "FNODownBlock2D",
+    "DownBlock2D",
 ]
 up_block_types: [
-    "FNOUpBlock2D",
+    "UpBlock2D",
     "AttnUpBlock2D",
-    "FNOUpBlock2D",
-    "FNOUpBlock2D",
-    "FNOUpBlock2D",
-    "FNOUpBlock2D"
+    "UpBlock2D",
+    "UpBlock2D",
+    "UpBlock2D",
+    "UpBlock2D"
 ]

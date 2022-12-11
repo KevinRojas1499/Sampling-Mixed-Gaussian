@@ -16,6 +16,8 @@ def extended_get_down_block(**kwargs):
     if kwargs['down_block_type'] == "FNODownBlock2D":
         return FNODownBlock2D(**kwargs)
     else:
+        kwargs.pop("samples")
+        kwargs.pop("verbose")
         return get_down_block(**kwargs)
 
 
@@ -23,6 +25,8 @@ def extended_get_up_block(**kwargs):
     if kwargs['up_block_type'] == "FNOUpBlock2D":
         return FNOUpBlock2D(**kwargs)
     else:
+        kwargs.pop("samples")
+        kwargs.pop("verbose")
         return get_up_block(**kwargs)
 
 def get_mid_block(mid_block_type, **kwargs):
@@ -94,9 +98,12 @@ class UNet2DModel(ModelMixin, ConfigMixin):
         attention_head_dim: int = 8,
         norm_num_groups: int = 32,
         norm_eps: float = 1e-5,
+        block_samples: Tuple[int] = None,
+        verbose=False,
     ):
         super().__init__()
 
+        self.verbose = verbose
         self.sample_size = sample_size
         time_embed_dim = block_out_channels[0] * 4
 
@@ -123,6 +130,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
             input_channel = output_channel
             output_channel = block_out_channels[i]
             is_final_block = i == len(block_out_channels) - 1
+            samples = block_samples[i]
 
             down_block = extended_get_down_block(
                 down_block_type=down_block_type,
@@ -136,6 +144,8 @@ class UNet2DModel(ModelMixin, ConfigMixin):
                 resnet_groups=norm_num_groups,
                 attn_num_head_channels=attention_head_dim,
                 downsample_padding=downsample_padding,
+                samples=samples,
+                verbose=verbose,
             )
             self.down_blocks.append(down_block)
 
@@ -154,14 +164,15 @@ class UNet2DModel(ModelMixin, ConfigMixin):
 
         # up
         reversed_block_out_channels = list(reversed(block_out_channels))
+        reversed_block_samples = list(reversed(block_samples))
         output_channel = reversed_block_out_channels[0]
         for i, up_block_type in enumerate(up_block_types):
             prev_output_channel = output_channel
             output_channel = reversed_block_out_channels[i]
             input_channel = reversed_block_out_channels[min(i + 1, len(block_out_channels) - 1)]
+            samples = reversed_block_samples[i]
 
             is_final_block = i == len(block_out_channels) - 1
-
             up_block = extended_get_up_block(
                 up_block_type=up_block_type,
                 num_layers=layers_per_block + 1,
@@ -174,6 +185,8 @@ class UNet2DModel(ModelMixin, ConfigMixin):
                 resnet_act_fn=act_fn,
                 resnet_groups=norm_num_groups,
                 attn_num_head_channels=attention_head_dim,
+                samples=samples,
+                verbose=verbose,
             )
             self.up_blocks.append(up_block)
             prev_output_channel = output_channel
@@ -224,6 +237,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
         # 3. down
         down_block_res_samples = (sample,)
         for downsample_block in self.down_blocks:
+            print("Downsampling") if self.verbose else None
             if hasattr(downsample_block, "skip_conv"):
                 sample, res_samples, skip_sample = downsample_block(
                     hidden_states=sample, temb=emb, skip_sample=skip_sample
@@ -234,11 +248,13 @@ class UNet2DModel(ModelMixin, ConfigMixin):
             down_block_res_samples += res_samples
 
         # 4. mid
+        print("MID") if self.verbose else None
         sample = self.mid_block(sample, emb)
 
         # 5. up
         skip_sample = None
         for upsample_block in self.up_blocks:
+            print("Upsampling") if self.verbose else None
             res_samples = down_block_res_samples[-len(upsample_block.resnets) :]
             down_block_res_samples = down_block_res_samples[: -len(upsample_block.resnets)]
 

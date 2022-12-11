@@ -31,6 +31,8 @@ from tqdm.auto import tqdm
 import wandb
 import yaml
 
+from torch.profiler import profile, record_function, ProfilerActivity
+
 
 def load_config(config_path):
     with open(config_path, "r") as f:
@@ -202,7 +204,7 @@ def parse_args():
     parser.add_argument("--ddpm_num_steps", type=int, default=1000)
     parser.add_argument("--ddpm_beta_schedule", type=str, default="linear")
 
-    parser.add_argument("--model_config_path", type=str, default="configs/model_configs/default_config.yaml")
+    parser.add_argument("--model_config_path", type=str)
 
     args = parser.parse_args()
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
@@ -236,6 +238,16 @@ def main(args):
 
     model_config = load_config(args.model_config_path)
     model = UNet2DModel(**model_config)
+
+    # Compute model size
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.nelement() * param.element_size()
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.nelement() * buffer.element_size()
+    print((param_size + buffer_size) / 1024**3)
+
     args.resolution = model_config["sample_size"]
     args.model_config = model_config
 
@@ -346,7 +358,12 @@ def main(args):
 
             with accelerator.accumulate(model):
                 # Predict the noise residual
+                #with profile(activities=[ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
                 model_output = model(noisy_images, timesteps).sample
+                
+                #with open("logs.txt", "w") as f:
+                    #print(prof.keys(), file=f)
+                    #print(prof.key_averages().table(row_limit=50), file=f)
 
                 if args.predict_epsilon:
                     loss = F.mse_loss(model_output, noise)  # this could have different weights!
@@ -360,6 +377,7 @@ def main(args):
                     )  # use SNR weighting from distillation paper
                     loss = loss.mean()
 
+                #with profile(activities=[ProfilerActivity.GPU], profile_memory=True, record_shapes=True) as prof:
                 accelerator.backward(loss)
 
                 if accelerator.sync_gradients:
@@ -392,7 +410,7 @@ def main(args):
                     scheduler=noise_scheduler,
                 )
 
-                deprecate("todo: remove this check", "0.10.0", "when the most used version is >= 0.8.0")
+                #deprecate("todo: remove this check", "0.10.0", "when the most used version is >= 0.8.0")
                 if diffusers_version < version.parse("0.8.0"):
                     generator = torch.manual_seed(0)
                 else:
