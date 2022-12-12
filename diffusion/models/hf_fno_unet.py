@@ -130,7 +130,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
             input_channel = output_channel
             output_channel = block_out_channels[i]
             is_final_block = i == len(block_out_channels) - 1
-            samples = block_samples[i]
+            samples = block_samples[i] if block_samples is not None else None
 
             down_block = extended_get_down_block(
                 down_block_type=down_block_type,
@@ -164,13 +164,13 @@ class UNet2DModel(ModelMixin, ConfigMixin):
 
         # up
         reversed_block_out_channels = list(reversed(block_out_channels))
-        reversed_block_samples = list(reversed(block_samples))
+        reversed_block_samples = list(reversed(block_samples)) if block_samples is not None else None
         output_channel = reversed_block_out_channels[0]
         for i, up_block_type in enumerate(up_block_types):
             prev_output_channel = output_channel
             output_channel = reversed_block_out_channels[i]
             input_channel = reversed_block_out_channels[min(i + 1, len(block_out_channels) - 1)]
-            samples = reversed_block_samples[i]
+            samples = reversed_block_samples[i] if block_samples is not None else None
 
             is_final_block = i == len(block_out_channels) - 1
             up_block = extended_get_up_block(

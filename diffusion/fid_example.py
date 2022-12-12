@@ -15,6 +15,10 @@ from torchvision.transforms import (
     ToTensor,
 )
 from scipy import linalg
+from diffusers import DDPMPipeline, DDPMScheduler
+import yaml
+from models.hf_fno_unet import UNet2DModel
+
 
 def get_activations(dataset, model, batch_size=50, dims=2048, device='cpu',
                     num_workers=1):
@@ -161,8 +165,25 @@ def calculate_fid(dataset1, dataset2, batch_size, device, dims, num_workers=1):
 
     return fid_value
 
+def load_dataset(name):
+    resolution = 64
+    augmentations = Compose(
+        [
+            Resize(64, interpolation=InterpolationMode.BILINEAR),
+            CenterCrop(64),
+            RandomHorizontalFlip(),
+            ToTensor(),
+            Normalize([0.5], [0.5]),
+        ]
+    )
+    if name == "flowers":
+        dataset = load_dataset("huggan/flowers-102-categories")["train"]
+        dataset = [augmentations(im["image"].convert("RGB")) for im in dataset]
+    else:
+        raise ValueError("Unknown dataset: {}".format(name))
+    return dataset
 
-if __name__ == "__main__":
+def sanity_check():
     resolution = 64
     augmentations = Compose(
         [
@@ -182,4 +203,43 @@ if __name__ == "__main__":
     dims = 2048
     fid = calculate_fid(dataset, dataset, 4, device, dims)
     print("FID: ", fid)
+
+
+def eval_model():
+    from diffusers import DiffusionPipeline
+
+    scheduler = noise_scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="linear")
     
+    model_config = load_config("configs/model_configs/simple_config.yaml")
+    model = UNet2DModel(**model_config)
+    model.load_state_dict(torch.load("working/fno-small-ddpm-ema-flowers-64/unet/diffusion_pytorch_model.bin"))
+    model.cuda()
+
+    fno_pipeline = DDPMPipeline(
+                    unet=model,
+                    scheduler=noise_scheduler,
+                )
+    fno_pipeline.to("cuda")
+
+    generator = torch.Generator(device=fno_pipeline.device).manual_seed(0)
+    # run pipeline in inference (sample random noise and denoise)
+
+    images = fno_pipeline(
+        generator=generator,
+        batch_size=16,
+        output_type="torch",
+    ).images.transpose(2, 3).transpose(1, 2)
+
+    flowers = load_dataset("flowers")
+
+    device = "cuda"
+    dims = 2048
+    print("Calculating FID")
+    fid = calculate_fid(images, flowers, 4, device, dims)
+    print("FID: ", fid)
+
+
+if __name__ == "__main__":
+    #sanity_check()
+    eval_model()
+    #eval_unet()

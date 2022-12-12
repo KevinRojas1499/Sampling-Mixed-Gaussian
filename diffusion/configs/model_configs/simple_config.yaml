@@ -2,7 +2,7 @@ sample_size: 64
 in_channels: 3
 out_channels: 3
 layers_per_block: 2
-block_out_channels: [128, 256, 256]
+block_out_channels: [128, 256, 256,]
 block_samples: [64, 32, 16]
 down_block_types: [
     "FNODownBlock2D",
