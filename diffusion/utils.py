@@ -42,9 +42,9 @@ def load_local_pipeline(config_path, model_path):
 def sample_pipeline():
     scheduler = noise_scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="linear")
     
-    model_config = load_config("configs/model_configs/simple_config.yaml")
+    model_config = load_config("configs/model_configs/default_config.yaml")
     model = UNet2DModel(**model_config)
-    model.load_state_dict(torch.load("working/fno-small-ddpm-ema-flowers-64/unet/diffusion_pytorch_model.bin"))
+    model.load_state_dict(torch.load("working/fno-full-ddpm-ema-flowers-64/unet/diffusion_pytorch_model.bin"))
     model.cuda()
 
     fno_pipeline = DDPMPipeline(
@@ -68,7 +68,7 @@ def sample_pipeline():
         data = images if data is None else np.concatenate((data, images))
     data = torch.tensor(data).transpose(2, 3).transpose(1, 2).numpy()
     dataset = Dataset.from_dict({"images": data})
-    dataset.push_to_hub("Dahoas/fno-flowers")
+    dataset.push_to_hub("Dahoas/fno-full-flowers")
 
 
 def upload_pipeline():

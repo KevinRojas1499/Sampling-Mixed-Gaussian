@@ -165,7 +165,7 @@ def calculate_fid(dataset1, dataset2, batch_size, device, dims, num_workers=1):
 
     return fid_value
 
-def load_dataset(name):
+def load_ref_dataset(name):
     resolution = 64
     augmentations = Compose(
         [
@@ -206,31 +206,10 @@ def sanity_check():
 
 
 def eval_model():
-    from diffusers import DiffusionPipeline
-
-    scheduler = noise_scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="linear")
     
-    model_config = load_config("configs/model_configs/simple_config.yaml")
-    model = UNet2DModel(**model_config)
-    model.load_state_dict(torch.load("working/fno-small-ddpm-ema-flowers-64/unet/diffusion_pytorch_model.bin"))
-    model.cuda()
-
-    fno_pipeline = DDPMPipeline(
-                    unet=model,
-                    scheduler=noise_scheduler,
-                )
-    fno_pipeline.to("cuda")
-
-    generator = torch.Generator(device=fno_pipeline.device).manual_seed(0)
-    # run pipeline in inference (sample random noise and denoise)
-
-    images = fno_pipeline(
-        generator=generator,
-        batch_size=16,
-        output_type="torch",
-    ).images.transpose(2, 3).transpose(1, 2)
-
-    flowers = load_dataset("flowers")
+    images = load_dataset("Dahoas/fno-full-flowers")["train"]
+    images = [torch.tensor(im["images"]) for im in images]
+    flowers = load_ref_dataset("flowers")
 
     device = "cuda"
     dims = 2048
@@ -240,6 +219,6 @@ def eval_model():
 
 
 if __name__ == "__main__":
-    #sanity_check()
-    eval_model()
+    sanity_check()
+    #eval_model()
     #eval_unet()
