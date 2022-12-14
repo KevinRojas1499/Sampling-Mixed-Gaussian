@@ -4,6 +4,7 @@ from pytorch_fid.inception import InceptionV3
 import numpy as np
 from torchvision.transforms.functional import pil_to_tensor
 from tqdm import tqdm
+from datasets import load_dataset, Dataset
 
 from torchvision.transforms import (
     CenterCrop,
@@ -166,24 +167,36 @@ def calculate_fid(dataset1, dataset2, batch_size, device, dims, num_workers=1):
     return fid_value
 
 def load_ref_dataset(name):
-    resolution = 64
-    augmentations = Compose(
-        [
-            Resize(64, interpolation=InterpolationMode.BILINEAR),
-            CenterCrop(64),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            Normalize([0.5], [0.5]),
-        ]
-    )
     if name == "flowers":
+        augmentations = Compose(
+            [
+                Resize(64, interpolation=InterpolationMode.BILINEAR),
+                CenterCrop(64),
+                ToTensor(),
+                Normalize([0.5], [0.5]),
+            ]
+        )
         dataset = load_dataset("huggan/flowers-102-categories")["train"]
         dataset = [augmentations(im["image"].convert("RGB")) for im in dataset]
     else:
         raise ValueError("Unknown dataset: {}".format(name))
     return dataset
 
-def sanity_check():
+def load_my_datast(name):
+    dataset = load_dataset(name)["train"]
+    if "flowers" in name:
+        augmentations = Compose(
+            [
+                Normalize([0.5], [0.5]),
+            ]
+        )
+        dataset = [augmentations(torch.tensor(im["images"]).type(torch.float32)) for im in dataset]
+    else:
+        raise ValueError("Unknown dataset: {}".format(name))
+    return dataset
+
+
+def identity_check():
     resolution = 64
     augmentations = Compose(
         [
@@ -194,7 +207,6 @@ def sanity_check():
             Normalize([0.5], [0.5]),
         ]
     )
-
 
     dataset = load_dataset("huggan/flowers-102-categories")["train"]
     dataset = [augmentations(im["image"].convert("RGB")) for im in dataset]
@@ -205,10 +217,33 @@ def sanity_check():
     print("FID: ", fid)
 
 
+def cifar_check():
+    augmentations = Compose(
+        [
+            ToTensor(),
+            Normalize([0.5], [0.5]),
+        ]
+    )
+    dataset = load_dataset("Dahoas/unet-cifar10-32")["train"]
+    print(np.array(dataset[0]["images"]).shape)
+    dataset = [torch.tensor(im["images"]).type(torch.float32) / 255 for im in dataset]
+    print(len(dataset))
+    print(dataset[0].shape)
+
+    ref_dataset = load_dataset("cifar10")["train"]
+    ref_dataset = [augmentations(im["img"].convert("RGB")) for im in ref_dataset]
+    print(len(ref_dataset))
+    print(ref_dataset[0].shape)
+
+    device = "cuda"
+    dims = 2048
+    fid = calculate_fid(dataset, ref_dataset, 4, device, dims)
+    # FID: 33.06
+    print("FID: ", fid)
+
+
 def eval_model():
-    
-    images = load_dataset("Dahoas/fno-full-flowers")["train"]
-    images = [torch.tensor(im["images"]) for im in images]
+    images = load_my_datast("Dahoas/fno-flowers")
     flowers = load_ref_dataset("flowers")
 
     device = "cuda"
@@ -218,7 +253,18 @@ def eval_model():
     print("FID: ", fid)
 
 
+def fix_dataset():
+    images = load_dataset("Dahoas/fno-flowers")["train"]
+    images = np.array(images["images"])
+    print(images.shape)
+    images = (255 * images).round().astype("uint8")
+    dataset = Dataset.from_dict({"images": images})
+    dataset.push_to_hub("Dahoas/fno-flowers")
+
+
 if __name__ == "__main__":
-    sanity_check()
+    #sanity_check()
     #eval_model()
     #eval_unet()
+    #fix_dataset()
+    cifar_check()

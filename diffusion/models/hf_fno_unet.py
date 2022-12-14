@@ -97,7 +97,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
         act_fn: str = "silu",
         attention_head_dim: int = 8,
         norm_num_groups: int = 32,
-        norm_eps: float = 1e-5,
+        norm_eps: float = 1e-6,
         block_samples: Tuple[int] = None,
         verbose=False,
     ):

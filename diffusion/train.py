@@ -270,16 +270,6 @@ def main(args):
         eps=args.adam_epsilon,
     )
 
-    augmentations = Compose(
-        [
-            Resize(args.resolution, interpolation=InterpolationMode.BILINEAR),
-            CenterCrop(args.resolution),
-            RandomHorizontalFlip(),
-            ToTensor(),
-            Normalize([0.5], [0.5]),
-        ]
-    )
-
     if args.dataset_name is not None:
         dataset = load_dataset(
             args.dataset_name,
@@ -291,7 +281,28 @@ def main(args):
         dataset = load_dataset("imagefolder", data_dir=args.train_data_dir, cache_dir=args.cache_dir, split="train")
 
     def transforms(examples):
-        images = [augmentations(image.convert("RGB")) for image in examples["image"]]
+        if "flowers" in args.dataset_name:
+            augmentations = Compose(
+                [
+                    Resize(args.resolution, interpolation=InterpolationMode.BILINEAR),
+                    CenterCrop(args.resolution),
+                    RandomHorizontalFlip(),
+                    ToTensor(),
+                    Normalize([0.5], [0.5]),
+                ]
+            )
+            images = [augmentations(image.convert("RGB")) for image in examples["image"]]
+        elif "cifar" in args.dataset_name:
+            augmentations = Compose(
+                [
+                    RandomHorizontalFlip(),
+                    ToTensor(),
+                    Normalize([0.5], [0.5]),
+                ]
+            )
+            images = [augmentations(image.convert("RGB")) for image in examples["img"]]
+        else:
+            return ValueError("Unrecognized dataset: {}".format(args.dataset_name))
         return {"input": images}
 
     logger.info(f"Dataset size: {len(dataset)}")
@@ -360,7 +371,7 @@ def main(args):
                 # Predict the noise residual
                 #with profile(activities=[ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
                 model_output = model(noisy_images, timesteps).sample
-                
+
                 #with open("logs.txt", "w") as f:
                     #print(prof.keys(), file=f)
                     #print(prof.key_averages().table(row_limit=50), file=f)

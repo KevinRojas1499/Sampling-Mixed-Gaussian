@@ -1,1 +1,0 @@
-vanilla_launch.sh: line 1: accelerate: command not found
