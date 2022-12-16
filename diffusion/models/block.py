@@ -236,7 +236,7 @@ class ResnetBlock2D(nn.Module):
         return output_tensor
 
 
-class FNODownBlock2D(nn.Module):
+class DownBlock2D(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -317,7 +317,7 @@ class FNODownBlock2D(nn.Module):
 
 
 
-class FNOUpBlock2D(nn.Module):
+class UpBlock2D(nn.Module):
     def __init__(
         self,
         in_channels: int,

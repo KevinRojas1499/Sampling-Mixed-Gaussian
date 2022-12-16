@@ -224,9 +224,9 @@ def cifar_check():
             Normalize([0.5], [0.5]),
         ]
     )
-    dataset = load_dataset("Dahoas/unet-cifar10-32")["train"]
+    dataset = load_dataset("Dahoas/fno-cifar10-32")["train"]
     print(np.array(dataset[0]["images"]).shape)
-    dataset = [torch.tensor(im["images"]).type(torch.float32) / 255 for im in dataset]
+    dataset = [Normalize([0.5], [0.5])(torch.tensor(im["images"])) for im in dataset]
     print(len(dataset))
     print(dataset[0].shape)
 
@@ -238,7 +238,7 @@ def cifar_check():
     device = "cuda"
     dims = 2048
     fid = calculate_fid(dataset, ref_dataset, 4, device, dims)
-    # FID: 33.06
+    # FID: 11.27
     print("FID: ", fid)
 
 

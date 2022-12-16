@@ -39,7 +39,7 @@ def load_local_pipeline(config_path, model_path):
                 )
     return pipeline
 
-def sample_pipeline(rank=0, world_size=1, load_model=True, num_samples=50000, result_queue=None):
+def sample_pipeline(rank=0, world_size=1, load_model=True, num_samples=50000):
     if world_size > 1:
         import torch.distributed as dist
         dist.init_process_group("gloo", rank=rank, world_size=world_size)
@@ -47,9 +47,10 @@ def sample_pipeline(rank=0, world_size=1, load_model=True, num_samples=50000, re
     if load_model:
         scheduler = noise_scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="linear")
     
-        model_config = load_config("configs/model_configs/default_config.yaml")
+        model_config = load_config("configs/model_configs/cifar_dual_fno.yaml")
+        print(model_config)
         model = UNet2DModel(**model_config)
-        model.load_state_dict(torch.load("working/fno-full-ddpm-ema-flowers-64/unet/diffusion_pytorch_model.bin"))
+        model.load_state_dict(torch.load("working/dual-fno-ddpm-ema-cifar/unet/diffusion_pytorch_model.bin"))
 
         pipeline = DDPMPipeline(
                       unet=model,
@@ -76,33 +77,29 @@ def sample_pipeline(rank=0, world_size=1, load_model=True, num_samples=50000, re
     data = torch.tensor(data).transpose(2, 3).transpose(1, 2).numpy()
     if world_size == 1:
         dataset = Dataset.from_dict({"images": data})
-        dataset.push_to_hub("Dahoas/pretrained-unet-cifar10-32")
+        dataset.push_to_hub("Dahoas/fno-cifar10-32")
     else:
-        torch.save(dataset, "data_{}.pt".format(rank))
+        torch.save(torch.tensor(data), "dataset_{}.pt".format(rank))
 
 
 def sample_parallel():
     import torch.multiprocessing as mp
 
-    world_size = 2
-    num_samples = 32
+    world_size = 8
+    num_samples = 50000
     num_gpu_samples = num_samples // world_size
-    result_queue = mp.Queue()
-    for rank in range(world_size):
-        mp.Process(target=sample_pipeline, args=(rank, world_size, False, num_gpu_samples, result_queue)).start()
+    mp.spawn(sample_pipeline, args=(world_size, True, num_gpu_samples), nprocs=world_size, join=True)
 
     dataset = None
-    for _ in range(world_size):
-        sub_dataset = result_queue.get()
+    for i in range(world_size):
+        sub_dataset = torch.load("dataset_{}.pt".format(i)).numpy()
         dataset = sub_dataset if dataset is None else np.concatenate((dataset, sub_dataset))
 
     print(dataset.shape)
     dataset = Dataset.from_dict({"images": dataset})
-    dataset.push_to_hub("Dahoas/pretrained-unet-cifar10-32")
-    exit()
+    dataset.push_to_hub("Dahoas/dual-fno-cifar10-32")
+    
 
-
-    #datasets = mp.spawn(sample_pipeline, args=(world_size, True, num_gpu_samples), nprocs=world_size, join=True)
     
 
 def upload_pipeline():
@@ -117,3 +114,4 @@ if __name__ == "__main__":
     #upload_pipeline()
     #sample_pipeline(load_model=False)
     sample_parallel()
+    #sample_pipeline()

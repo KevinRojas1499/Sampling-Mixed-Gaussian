@@ -301,6 +301,17 @@ def main(args):
                 ]
             )
             images = [augmentations(image.convert("RGB")) for image in examples["img"]]
+        elif "lsun_church" in args.dataset_name:
+            augmentations = Compose(
+                [
+                    Resize(args.resolution, interpolation=InterpolationMode.BILINEAR),
+                    CenterCrop(args.resolution),
+                    RandomHorizontalFlip(),
+                    ToTensor(),
+                    Normalize([0.5], [0.5]),
+                ]
+            )
+            images = [augmentations(image.convert("RGB")) for image in examples["image"]]
         else:
             return ValueError("Unrecognized dataset: {}".format(args.dataset_name))
         return {"input": images}

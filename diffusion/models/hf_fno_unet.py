@@ -18,6 +18,7 @@ def extended_get_down_block(**kwargs):
     else:
         kwargs.pop("samples")
         kwargs.pop("verbose")
+        kwargs.pop("dual_fno")
         return get_down_block(**kwargs)
 
 
@@ -27,7 +28,9 @@ def extended_get_up_block(**kwargs):
     else:
         kwargs.pop("samples")
         kwargs.pop("verbose")
+        kwargs.pop("dual_fno")
         return get_up_block(**kwargs)
+
 
 def get_mid_block(mid_block_type, **kwargs):
     if mid_block_type == "FNOBlock2D":
@@ -99,6 +102,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
         norm_num_groups: int = 32,
         norm_eps: float = 1e-6,
         block_samples: Tuple[int] = None,
+        dual_fno=False,
         verbose=False,
     ):
         super().__init__()
@@ -145,6 +149,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
                 attn_num_head_channels=attention_head_dim,
                 downsample_padding=downsample_padding,
                 samples=samples,
+                dual_fno=dual_fno,
                 verbose=verbose,
             )
             self.down_blocks.append(down_block)
@@ -186,6 +191,7 @@ class UNet2DModel(ModelMixin, ConfigMixin):
                 resnet_groups=norm_num_groups,
                 attn_num_head_channels=attention_head_dim,
                 samples=samples,
+                dual_fno=dual_fno,
                 verbose=verbose,
             )
             self.up_blocks.append(up_block)

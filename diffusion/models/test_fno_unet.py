@@ -11,6 +11,8 @@ from functools import reduce
 from functools import partial
 
 from timeit import default_timer
+from fno_block import FNODownBlock2D
+from block import DownBlock2D
 
 
 def test_spectral_conv():
@@ -29,7 +31,24 @@ def test_2():
     print(cr_v)
 
 
+def compare_param_sizes():
+    import time
+    start = time.time()
+    fno_block = FNODownBlock2D(128, 256, 3, num_layers=2, samples=256)
+    t = time.time()
+    print(t - start)
+    block = DownBlock2D(128, 256, 3, num_layers=2, samples=256)
+    print(time.time() - t)
+
+    
+    print("FNO num params: {}".format(len(list(fno_block.parameters()))))
+    [print(p.size()) for p in fno_block.parameters()]
+    print("Block num params: {}".format(len(list(block.parameters()))))
+    [print(p.size()) for p in block.parameters()]
+
+
 
 if __name__ == "__main__":
-    test_spectral_conv()
+    #test_spectral_conv()
+    compare_param_sizes()
     #test_2()

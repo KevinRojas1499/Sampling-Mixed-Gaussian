@@ -220,6 +220,7 @@ class ResnetBlock2D(nn.Module):
         up=False,
         down=False,
         samples=64,
+        dual_fno=False,
         verbose=False,
     ):
         super().__init__()
@@ -231,6 +232,7 @@ class ResnetBlock2D(nn.Module):
         self.up = up
         self.down = down
         self.output_scale_factor = output_scale_factor
+        self.dual_fno = dual_fno
 
         if groups_out is None:
             groups_out = groups
@@ -238,9 +240,9 @@ class ResnetBlock2D(nn.Module):
         self.norm1 = torch.nn.GroupNorm(num_groups=groups, num_channels=in_channels, eps=eps, affine=True)
 
         # Changed to spectral conv
-        # TODO(dahoas): remove mode hardcoding
-        self.conv1 = SpectralConv2d(in_channels, out_channels, samples // 2 + 1, samples // 2 + 1, verbose=verbose)
-        #torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.fno_conv1 = SpectralConv2d(in_channels, out_channels, samples // 2 + 1, samples // 2 + 1, verbose=verbose)
+        if self.dual_fno:
+            self.conv1 = torch.nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
         if temb_channels is not None:
             self.time_emb_proj = torch.nn.Linear(temb_channels, out_channels)
@@ -250,9 +252,9 @@ class ResnetBlock2D(nn.Module):
         self.norm2 = torch.nn.GroupNorm(num_groups=groups_out, num_channels=out_channels, eps=eps, affine=True)
         self.dropout = torch.nn.Dropout(dropout)
         # Changed to spectral conv
-        # TODO(dahoas): remove mode hardcoding
-        self.conv2 = SpectralConv2d(out_channels, out_channels,  samples // 2 + 1, samples // 2 + 1, verbose=verbose)
-        #torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
+        self.fno_conv2 = SpectralConv2d(out_channels, out_channels,  samples // 2 + 1, samples // 2 + 1, verbose=verbose)
+        if self.dual_fno:
+            self.conv2 = torch.nn.Conv2d(out_channels, out_channels, kernel_size=3, stride=1, padding=1)
 
         if non_linearity == "swish":
             self.nonlinearity = lambda x: F.silu(x)
@@ -305,7 +307,11 @@ class ResnetBlock2D(nn.Module):
             input_tensor = self.downsample(input_tensor)
             hidden_states = self.downsample(hidden_states)
 
-        hidden_states = self.conv1(hidden_states)
+        next_hidden_states = self.fno_conv1(hidden_states)
+        if self.dual_fno:
+            conv_hidden_states = self.conv1(hidden_states)
+            next_hidden_states = next_hidden_states + conv_hidden_states
+        hidden_states = next_hidden_states
 
         if temb is not None:
             temb = self.time_emb_proj(self.nonlinearity(temb))[:, :, None, None]
@@ -313,9 +319,13 @@ class ResnetBlock2D(nn.Module):
 
         hidden_states = self.norm2(hidden_states)
         hidden_states = self.nonlinearity(hidden_states)
-
         hidden_states = self.dropout(hidden_states)
-        hidden_states = self.conv2(hidden_states)
+
+        next_hidden_states = self.fno_conv2(hidden_states)
+        if self.dual_fno:
+            conv_hidden_states = self.conv2(hidden_states)
+            next_hidden_states = next_hidden_states + conv_hidden_states
+        hidden_states = next_hidden_states
 
         if self.conv_shortcut is not None:
             input_tensor = self.conv_shortcut(input_tensor)
@@ -342,6 +352,7 @@ class FNODownBlock2D(nn.Module):
         add_downsample=True,
         downsample_padding=1,
         samples=64,
+        dual_fno=False,
         verbose=False,
         **kwargs,
     ):
@@ -363,6 +374,7 @@ class FNODownBlock2D(nn.Module):
                     output_scale_factor=output_scale_factor,
                     pre_norm=resnet_pre_norm,
                     samples=samples,
+                    dual_fno=dual_fno,
                     verbose=verbose,
                 )
             )
@@ -427,6 +439,7 @@ class FNOUpBlock2D(nn.Module):
         output_scale_factor=1.0,
         add_upsample=True,
         samples=64,
+        dual_fno=False,
         verbose=False,
         **kwargs,
     ):
@@ -450,6 +463,7 @@ class FNOUpBlock2D(nn.Module):
                     output_scale_factor=output_scale_factor,
                     pre_norm=resnet_pre_norm,
                     samples=samples,
+                    dual_fno=dual_fno,
                     verbose=verbose,
                 )
             )
