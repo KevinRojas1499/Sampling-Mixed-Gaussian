@@ -33,6 +33,7 @@ import yaml
 
 from torch.profiler import profile, record_function, ProfilerActivity
 
+import transformUtils.py
 
 def load_config(config_path):
     with open(config_path, "r") as f:
@@ -280,6 +281,9 @@ def main(args):
     else:
         dataset = load_dataset("imagefolder", data_dir=args.train_data_dir, cache_dir=args.cache_dir, split="train")
 
+    #TODO(dahoas): don't hardcode
+    ft_preprocess = False
+    normalize_ft = True
     def transforms(examples):
         if "flowers" in args.dataset_name:
             augmentations = Compose(
@@ -297,10 +301,10 @@ def main(args):
                 [
                     RandomHorizontalFlip(),
                     ToTensor(),
-                    Normalize([0.5], [0.5]),
+                    Normalize([0.5], [0.5])
                 ]
             )
-            images = [augmentations(image.convert("RGB")) for image in examples["img"]]
+            images = [transformUtils.modifiedRFFT2(augmentations(image.convert("RGB"))) for image in examples["img"]]
         elif "lsun_church" in args.dataset_name:
             augmentations = Compose(
                 [
@@ -314,11 +318,16 @@ def main(args):
             images = [augmentations(image.convert("RGB")) for image in examples["image"]]
         else:
             return ValueError("Unrecognized dataset: {}".format(args.dataset_name))
+        if ft_preprocess:
+            images = [torch.view_as_real(torch.fft.rfft2(image))[:, :, 1:].reshape(3, 64, 64) for image in images]
+            if normalize_ft: 
+                images = [image for image in images]
         return {"input": images}
 
     logger.info(f"Dataset size: {len(dataset)}")
 
     dataset.set_transform(transforms)
+    
     train_dataloader = torch.utils.data.DataLoader(
         dataset, batch_size=args.train_batch_size, shuffle=True, num_workers=args.dataloader_num_workers
     )
@@ -443,6 +452,13 @@ def main(args):
                     batch_size=args.eval_batch_size,
                     output_type="numpy",
                 ).images
+
+                if ft_preprocess:
+                    images = torch.tensor(images)
+                    images = torch.fft.irfft2(torch.view_as_complex(images.reshape(-1, 3, 64, 32, 2)))
+                    zs = torch.zeros((images.shape[0], 3, 64, 64))
+                    zs[:, :, :, :62] = images
+                    images = zs.numpy()
 
                 # denormalize the images and save to tensorboard
                 images_processed = (images * 255).round().astype("uint8")
