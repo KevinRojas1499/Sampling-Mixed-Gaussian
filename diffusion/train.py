@@ -282,7 +282,7 @@ def main(args):
         dataset = load_dataset("imagefolder", data_dir=args.train_data_dir, cache_dir=args.cache_dir, split="train")
 
     #TODO(dahoas): don't hardcode
-    ft_preprocess = False
+    ft_preprocess = True
     normalize_ft = True
     def transforms(examples):
         if "flowers" in args.dataset_name:
@@ -304,7 +304,7 @@ def main(args):
                     Normalize([0.5], [0.5])
                 ]
             )
-            images = [transformUtils.modifiedRFFT2(augmentations(image.convert("RGB"))) for image in examples["img"]]
+            images = [augmentations(image.convert("RGB")) for image in examples["img"]]
         elif "lsun_church" in args.dataset_name:
             augmentations = Compose(
                 [
@@ -319,9 +319,7 @@ def main(args):
         else:
             return ValueError("Unrecognized dataset: {}".format(args.dataset_name))
         if ft_preprocess:
-            images = [torch.view_as_real(torch.fft.rfft2(image))[:, :, 1:].reshape(3, 64, 64) for image in images]
-            if normalize_ft: 
-                images = [image for image in images]
+            images = [transformUtils.completeRFFT2(image) for image in images]
         return {"input": images}
 
     logger.info(f"Dataset size: {len(dataset)}")
@@ -455,9 +453,7 @@ def main(args):
 
                 if ft_preprocess:
                     images = torch.tensor(images)
-                    images = torch.fft.irfft2(torch.view_as_complex(images.reshape(-1, 3, 64, 32, 2)))
-                    zs = torch.zeros((images.shape[0], 3, 64, 64))
-                    zs[:, :, :, :62] = images
+                    images = torch.stack([completeIRFFT2(image) for image in images])
                     images = zs.numpy()
 
                 # denormalize the images and save to tensorboard

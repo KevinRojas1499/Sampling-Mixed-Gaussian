@@ -45,6 +45,11 @@ def modifiedIRFFT2(image):
     newImage = torch.stack([modifiedIRFFT(row) for row in newImage])
     return newImage
 
+def completeRFFT2(image):
+    return torch.stack([modifiedRFFT2(layer) for layer in image])
+
+def completeIRFFT2(image):
+    return torch.stack([modifiedIRFFT2(layer) for layer in image])
 
 a = torch.randn(8)
 print(a)
@@ -56,3 +61,7 @@ print(b)
 c = modifiedRFFT2(b)
 print(modifiedIRFFT2(c))
 
+d = torch.stack([torch.randn((4,4)) for i in range(3)])
+print(d)
+e = completeRFFT2(d)
+print(completeIRFFT2(e))
