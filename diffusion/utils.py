@@ -1,6 +1,5 @@
 from datasets import load_dataset
 import torch
-from pytorch_fid.inception import InceptionV3
 import numpy as np
 from torchvision.transforms.functional import pil_to_tensor
 from tqdm import tqdm
@@ -20,7 +19,7 @@ from diffusers import DDPMPipeline, DDPMScheduler
 import yaml
 from models.hf_fno_unet import UNet2DModel
 from diffusers import DiffusionPipeline
-from datasets import load_dataset, Dataset
+from datasets import load_dataset, Dataset, concatenate_datasets
 
 
 def load_config(config_path):
@@ -47,10 +46,11 @@ def sample_pipeline(rank=0, world_size=1, load_model=True, num_samples=50000):
     if load_model:
         scheduler = noise_scheduler = DDPMScheduler(num_train_timesteps=1000, beta_schedule="linear")
     
-        model_config = load_config("configs/model_configs/cifar_dual_fno.yaml")
+        model_config = load_config("configs/model_configs/lsun_256/fno.yaml")
         print(model_config)
         model = UNet2DModel(**model_config)
-        model.load_state_dict(torch.load("working/dual-fno-ddpm-ema-cifar/unet/diffusion_pytorch_model.bin"))
+        model_name = "fno-ddpm-ema-lsun-church"
+        model.load_state_dict(torch.load("working/{}/unet/diffusion_pytorch_model.bin".format(model_name)))
 
         pipeline = DDPMPipeline(
                       unet=model,
@@ -79,7 +79,7 @@ def sample_pipeline(rank=0, world_size=1, load_model=True, num_samples=50000):
         dataset = Dataset.from_dict({"images": data})
         dataset.push_to_hub("Dahoas/fno-cifar10-32")
     else:
-        torch.save(torch.tensor(data), "dataset_{}.pt".format(rank))
+        torch.save(torch.tensor(data), "datasets/{}/dataset_{}.pt".format(model_name, rank))
 
 
 def sample_parallel():
@@ -88,16 +88,19 @@ def sample_parallel():
     world_size = 8
     num_samples = 50000
     num_gpu_samples = num_samples // world_size
-    mp.spawn(sample_pipeline, args=(world_size, True, num_gpu_samples), nprocs=world_size, join=True)
+    #mp.spawn(sample_pipeline, args=(world_size, True, num_gpu_samples), nprocs=world_size, join=True)
+    
+    # Huggingface doesn't support large image datasets
 
     dataset = None
     for i in range(world_size):
-        sub_dataset = torch.load("dataset_{}.pt".format(i)).numpy()
-        dataset = sub_dataset if dataset is None else np.concatenate((dataset, sub_dataset))
+        print(i)
+        sub_dataset = torch.load("datasets/unet-ddpm-ema-lsun-church/dataset_{}.pt".format(i)).numpy()
+        sub_dataset = Dataset.from_dict({"images": sub_dataset})
+        dataset = sub_dataset if dataset is None else concatenate_datasets([dataset, sub_dataset])
 
     print(dataset.shape)
-    dataset = Dataset.from_dict({"images": dataset})
-    dataset.push_to_hub("Dahoas/dual-fno-cifar10-32")
+    dataset.push_to_hub("Dahoas/unet-lsun-256")
     
 
     

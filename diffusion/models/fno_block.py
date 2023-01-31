@@ -50,12 +50,12 @@ class SpectralConv2d(nn.Module):
         self.out_channels = out_channels
         self.modes1 = modes1 #Number of Fourier modes to multiply, at most floor(N/2) + 1
         self.modes2 = modes2
+        #self.rescale_high_freq = rescale_high_freq
 
         self.verbose = verbose
 
         self.scale = (1 / (in_channels * out_channels))
         self.weights1 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
-        self.weights2 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
 
     # Complex multiplication
     def compl_mul2d(self, input, weights):
@@ -73,8 +73,6 @@ class SpectralConv2d(nn.Module):
         out_ft = torch.zeros((batchsize, self.out_channels,  x.size(-3), x.size(-2)//2 + 1, 2), device=x.device)
         out_ft[:, :, :self.modes1, :self.modes2, :] = \
             self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2, :], self.weights1)
-        out_ft[:, :, -self.modes1:, :self.modes2] = \
-            self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
 
         #Return to physical space
         out_ft = torch.view_as_complex(out_ft)

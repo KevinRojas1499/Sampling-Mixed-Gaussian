@@ -46,22 +46,43 @@ def modifiedIRFFT2(image):
     return newImage
 
 def completeRFFT2(image):
-    return torch.stack([modifiedRFFT2(layer) for layer in image])
+    rfft = torch.zeros(image.shape)
+    for i in range(3):
+        rfft[i,:,:] = modifiedRFFT2(image[i,:,:])
+    return rfft
 
 def completeIRFFT2(image):
-    return torch.stack([modifiedIRFFT2(layer) for layer in image])
+    irfft = torch.zeros(image.shape)
+    for i in range(3):
+        irfft[i,:,:] = modifiedIRFFT2(image[i,:,:])
+    return irfft
 
-a = torch.randn(8)
-print(a)
-fft = modifiedRFFT(a)
-print(modifiedIRFFT(fft))
 
-b = torch.randn(((8,8)))
-print(b)
-c = modifiedRFFT2(b)
-print(modifiedIRFFT2(c))
 
-d = torch.stack([torch.randn((4,4)) for i in range(3)])
-print(d)
-e = completeRFFT2(d)
-print(completeIRFFT2(e))
+# a = torch.randn(8)
+# print(a)
+# fft = modifiedRFFT(a)
+# print(modifiedIRFFT(fft))
+
+# b = torch.randn(((8,8)))
+# print(b)
+# c = modifiedRFFT2(b)
+# print(modifiedIRFFT2(c))
+
+# n = 4
+# d = torch.stack([torch.randn((4,4)) for i in range(3)])
+# print(d.shape)
+# print(d)
+# e = completeRFFT2(d)
+# print(completeIRFFT2(e))
+
+# d = torch.stack([torch.randn((4,5)) for i in range(3)])
+# print(d.shape)
+# x = torch.permute(d, (2, 0,1))
+# print(x.shape)
+# print(torch.permute(x, (1,2,0)).shape)
+
+
+# d = torch.stack([torch.randn((4,4)) for i in range(6)])
+# print(d.shape)
+# print(d)

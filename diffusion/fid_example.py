@@ -5,6 +5,7 @@ import numpy as np
 from torchvision.transforms.functional import pil_to_tensor
 from tqdm import tqdm
 from datasets import load_dataset, Dataset
+import random
 
 from torchvision.transforms import (
     CenterCrop,
@@ -19,6 +20,7 @@ from scipy import linalg
 from diffusers import DDPMPipeline, DDPMScheduler
 import yaml
 from models.hf_fno_unet import UNet2DModel
+import os
 
 
 def get_activations(dataset, model, batch_size=50, dims=2048, device='cpu',
@@ -241,6 +243,64 @@ def cifar_check():
     # FID: 11.27
     print("FID: ", fid)
 
+def load_local_dataset(folder_path):
+    dataset = None
+    for i in range(8):
+        sub_dataset = torch.load(os.path.join(folder_path, "dataset_{}.pt").format(i)).numpy()
+        dataset = sub_dataset if dataset is None else np.concatenate((dataset, sub_dataset))
+    return dataset
+
+def lsun_check():
+    augmentations = Compose(
+                [
+                    Resize(256, interpolation=InterpolationMode.BILINEAR),
+                    CenterCrop(256),
+                    RandomHorizontalFlip(),
+                    ToTensor(),
+                    Normalize([0.5], [0.5]),
+                ]
+            )
+    dataset = load_local_dataset("datasets/dual-fno-ddpm-ema-lsun-church/")
+    print(dataset.shape)
+    dataset = [Normalize([0.5], [0.5])(torch.tensor(im)) for im in dataset]
+    print(len(dataset))
+    print(dataset[0].shape)
+
+    ref_dataset = load_dataset("tglcourse/lsun_church_train")["train"]
+    ref_dataset = [augmentations(im["image"].convert("RGB")) for im in ref_dataset]
+    random.shuffle(ref_dataset)
+    ref_dataset = ref_dataset[:len(dataset)]
+    print(len(ref_dataset))
+    print(ref_dataset[0].shape)
+
+    device = "cuda"
+    dims = 2048
+    fid = calculate_fid(dataset, ref_dataset, 4, device, dims)
+    # FID: 11.27
+    print("FID: ", fid)
+
+
+def ho_cifar_check():
+    dataset = torch.tensor(np.load("datasets/unconditional_cifar10_samples.npy")).transpose(2,3).transpose(1,2)
+
+    augmentations = Compose(
+        [
+            ToTensor(),
+            Normalize([0.5], [0.5]),
+        ]
+    )
+    ref_dataset = load_dataset("cifar10")["train"]
+    ref_dataset = [augmentations(im["img"].convert("RGB")) for im in ref_dataset]
+
+    print(dataset.shape)
+    print(len(ref_dataset), ref_dataset[0].shape)
+
+    device = "cuda"
+    dims = 2048
+    fid = calculate_fid(dataset, ref_dataset, 4, device, dims)
+    # FID: 11.27
+    print("FID: ", fid)
+
 
 def eval_model():
     images = load_my_datast("Dahoas/fno-flowers")
@@ -267,4 +327,6 @@ if __name__ == "__main__":
     #eval_model()
     #eval_unet()
     #fix_dataset()
-    cifar_check()
+    #cifar_check()
+    #lsun_check()
+    ho_cifar_check()

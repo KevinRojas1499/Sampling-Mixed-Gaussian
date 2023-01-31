@@ -39,7 +39,6 @@ def compare_param_sizes():
     print(t - start)
     block = DownBlock2D(128, 256, 3, num_layers=2, samples=256)
     print(time.time() - t)
-
     
     print("FNO num params: {}".format(len(list(fno_block.parameters()))))
     [print(p.size()) for p in fno_block.parameters()]

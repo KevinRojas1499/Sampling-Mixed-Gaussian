@@ -33,7 +33,7 @@ import yaml
 
 from torch.profiler import profile, record_function, ProfilerActivity
 
-import transformUtils.py
+import transformUtils
 
 def load_config(config_path):
     with open(config_path, "r") as f:
@@ -284,6 +284,7 @@ def main(args):
     #TODO(dahoas): don't hardcode
     ft_preprocess = True
     normalize_ft = True
+
     def transforms(examples):
         if "flowers" in args.dataset_name:
             augmentations = Compose(
@@ -318,6 +319,7 @@ def main(args):
             images = [augmentations(image.convert("RGB")) for image in examples["image"]]
         else:
             return ValueError("Unrecognized dataset: {}".format(args.dataset_name))
+
         if ft_preprocess:
             images = [transformUtils.completeRFFT2(image) for image in images]
         return {"input": images}
@@ -453,8 +455,11 @@ def main(args):
 
                 if ft_preprocess:
                     images = torch.tensor(images)
-                    images = torch.stack([completeIRFFT2(image) for image in images])
-                    images = zs.numpy()
+                    image = images[0]
+                    print(image.shape)
+                    
+                    images = torch.stack([torch.permute(transformUtils.completeIRFFT2(torch.permute(image, (2, 0,1))),(1,2,0)) for image in images])
+                    images = images.numpy()
 
                 # denormalize the images and save to tensorboard
                 images_processed = (images * 255).round().astype("uint8")

@@ -1,4 +1,4 @@
-sample_size: 256
+sample_size: 64
 flip_sin_to_cos: False
 dual_fno: True
 freq_shift: 1
