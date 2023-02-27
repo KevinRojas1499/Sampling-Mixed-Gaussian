@@ -9,23 +9,59 @@ import ot
 import wandb
 import generateSamples
 
+
+
+def plot3D(samples,ax,title):
+    ax.scatter3D(samples[:,0], samples[:,1], samples[:,2], color = "green")
+    plt.title(title)
+
+def dual3DPlot(samples1,samples2,title):    
+    fig = plt.figure()
+    fig.suptitle(title)
+    ax = fig.add_subplot(1, 2, 1, projection='3d')    
+    plot3D(samples1, ax,"Samples Before")
+
+    ax = fig.add_subplot(1, 2, 2, projection='3d')    
+    plot3D(samples2, ax, "Generated Samples")
+
+    plt.show()  
+
+def dualPlot(samples1, samples2,title):
+    fig = plt.figure()
+    fig.suptitle(title)
+    ax = fig.add_subplot(1, 2, 1)    
+
+    plt.title("Samples Before")
+    ax.scatter(samples1[:,0],samples1[:,1],color='red')
+
+
+    ax = fig.add_subplot(1, 2, 2)    
+    plt.title("Samples After")
+    ax.scatter(samples2[:,0],samples2[:,1],color='blue')
+
+    plt.show()
+
+
 num_samples = 1000
 
 # 3D Example
-c = [1/3,1/4,1/5,1/6,1/20]
-means = [[40,40,0.],[-15,-20,0], [30,10,20],[-3,-3,-3],[0,0,0]]
-variances = [[[1,0,0],[0,1,0],[0,0,1]], [[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]],[[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]]]
-
-
 # c = [1/3,1/4,1/5,1/6,1/20]
-# means = [[0.5,0.5],[-15,-20], [30,10], [7,15], [-6, 15]]
-# variances = [[[1,0],[0,1]], [[5,1],[1,1]] , [[1, 2],[2,5]], [[-1,-2],[-2,-5]],[[1,2],[2,4]]]
+# means = [[40,40,0.],[-15,-20,0], [30,10,20],[-3,-3,-3],[0,0,0]]
+# variances = [[[1,0,0],[0,1,0],[0,0,1]], [[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]],[[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]]]
+
+
+c = [1/3,1/4,1/5,1/6,1/20]
+means = [[0.5,0.5],[-15,-20], [30,10], [7,15], [-6, 15]]
+variances = [[[1,0],[0,1]], [[5,1],[1,1]] , [[1, 2],[2,5]], [[-1,-2],[-2,-5]],[[1,2],[2,4]]]
 
 
 sde = sde_lib.LinearSDE(beta=20)
 np.random.seed(0)
 samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
 
+samplesFFT = torch.fft.fft(samplesBeforeFFT)
+
+dualPlot(samplesBeforeFFT,samplesFFT,'Comparison')
 
 path = './checkpoints2D/'
 methods = ['normal','fft']
@@ -95,49 +131,35 @@ def sample(method,dim):
         checkpoint = torch.load(checkpointPath)
         score_function.load_state_dict(checkpoint)
 
+    k = 1000
     score_function = score_function.to(device=device)
     if method == 'sampleFourier':
-        generatedSamples = sde.generate_samples_reverse_fft(score_network=score_function, dimension = dim, nsamples=1000)
+        generatedSamples, trajectories = sde.generate_samples_reverse_fft(score_network=score_function, dimension = dim, nsamples=1000,ode=True)
+        
+        plt.title("Trajectories Fourier")
+        for i in range(len(trajectories)):
+            s = trajectories[i].to('cpu').numpy()
+            s = np.array(np.split(s,s.shape[0]//2))
+            plt.plot(s[:k,0],s[:k,1])
+        plt.show()
     else: 
-        generatedSamples = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000)
+        generatedSamples, trajectories = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000,ode=True)
+
+        plt.title("Trajectories Normal")
+        for i in range(len(trajectories)):
+            s = trajectories[i].to('cpu').numpy()
+            s = np.array(np.split(s,s.shape[0]//2))
+            plt.plot(s[:k,0],s[:k,1])
+        plt.show()
 
     if method != 'normal':
         for i , samp in enumerate(generatedSamples):
             generatedSamples[i] = torch.fft.irfft(getInverseTransform(samp,dim),n=dim,norm="forward")
         
     generatedSamples = generatedSamples.to('cpu')
+    print(generatedSamples.shape)
     return generatedSamples
 
-
-def plot3D(samples,ax,title):
-    ax.scatter3D(samples[:,0], samples[:,1], samples[:,2], color = "green")
-    plt.title(title)
-    
-def dual3DPlot(samples1,samples2,title):    
-    fig = plt.figure()
-    fig.suptitle(title)
-    ax = fig.add_subplot(1, 2, 1, projection='3d')    
-    plot3D(samples1, ax,"Samples Before")
-
-    ax = fig.add_subplot(1, 2, 2, projection='3d')    
-    plot3D(samples2, ax, "Generated Samples")
-    
-    plt.show()  
-
-def dualPlot(samples1, samples2,title):
-    fig = plt.figure()
-    fig.suptitle(title)
-    ax = fig.add_subplot(1, 2, 1)    
-
-    plt.title("Samples Before")
-    ax.scatter(samples1[:,0],samples1[:,1],color='red')
-
-
-    ax = fig.add_subplot(1, 2, 2)    
-    plt.title("Samples After")
-    ax.scatter(samples2[:,0],samples2[:,1],color='blue')
-
-    plt.show()
 
 # for method in methods:
 #     np.random.seed(2)
@@ -165,6 +187,8 @@ def fourierSample3D():
     title = "Diffusion using "
     dual3DPlot(samplesBeforeFFT,newSamples,title)
 
-fourierSample3D()
+# fourierSample3D()
 fourierSample2D()
-# dualPlot()
+
+samples = sample('normal',2)
+dualPlot(samplesBeforeFFT,samples,"Dual")

@@ -35,11 +35,13 @@ class LinearSDE(SDE):
     return 1-var
 
 
-  def generate_samples_reverse(self, score_network: torch.nn.Module, dimension, nsamples: int) -> torch.Tensor:
+  def generate_samples_reverse(self, score_network: torch.nn.Module, dimension, nsamples: int, ode=False) -> torch.Tensor:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     x_t = torch.randn((nsamples, dimension),device=device)
     time_pts = torch.linspace(1, 0, 1000).to(device)
-    beta = lambda t: beta(t)
+
+    num_trajectories = 10
+    trajectories = x_t[:num_trajectories,:]
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
@@ -48,16 +50,21 @@ class LinearSDE(SDE):
         tot_diffusion = self.g(t)
 
         # euler-maruyama step
-        x_t = x_t + tot_drift * dt + tot_diffusion * torch.randn_like(x_t) * torch.abs(dt) ** 0.5
-    return x_t
+        x_t = x_t + tot_drift * dt 
+        if ode == False:
+          randomness = tot_diffusion * torch.randn_like(x_t) * torch.abs(dt) ** 0.5
+          x_t += randomness
+        trajectories = torch.cat((trajectories, x_t[:num_trajectories,:]),dim=1)
+    return x_t, trajectories
   
-  def generate_samples_reverse_fft(self, score_network: torch.nn.Module, dimension, nsamples: int) -> torch.Tensor:
+  def generate_samples_reverse_fft(self, score_network: torch.nn.Module, dimension, nsamples: int, ode=False) -> torch.Tensor:
     # This score function is in the data space
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     x_t = torch.randn((nsamples, dimension),device=device)
     time_pts = torch.linspace(1, 0, 100).to(device)
-    beta = lambda t: beta(t)
 
+    num_trajectories = 10
+    trajectories = x_t[:num_trajectories,:]
     for i in range(len(time_pts) - 1):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
@@ -68,23 +75,36 @@ class LinearSDE(SDE):
         # A^-1 y
 
         score = score_network(x_data_t,t.expand(x_data_t.shape[0], 1)).detach() 
-        for i , el in enumerate(score):
-          score[i] = getTransform(torch.fft.rfft(el,norm="forward")) #A*score
+        score = getTransform(torch.fft.rfft(score,norm="forward"),dimension) #A*score
 
         tot_drift = self.f(x_t,t) - self.g(t)**2 * score
         tot_diffusion = self.g(t)
 
         # euler-maruyama step
-        x_t = x_t + tot_drift * dt + tot_diffusion * torch.randn_like(x_t) * torch.abs(dt) ** 0.5
-    return x_t
+        x_t = x_t + tot_drift * dt
+        if ode == False:
+          x_t*=2
+          randomness = tot_diffusion * torch.randn_like(x_t) * torch.abs(dt) ** 0.5
+          x_t += randomness
+        
+        
+        trajectories = torch.cat((trajectories, x_t[:num_trajectories,:]),dim=1)
 
-def getTransform(ft):
-  a = []
-  for c in ft:
-    a.append(torch.real(c))
-    if c.is_complex() and torch.imag(c).item() != 0 :
-        a.append(torch.imag(c))
-  return torch.tensor(a)
+    return x_t, trajectories
+
+def getTransform(ft,dim):
+  if dim == 2:
+    return ft.real
+  else:
+    n = ft.shape[0]
+    beg = ft[:,0:1].real
+    if dim%2 != 0: 
+      middle = torch.view_as_real(ft[:,1:]).reshape(n-1,dim)
+      end = ft[:,-1:].real
+      return torch.cat((beg,middle,end),dim=1)
+    else:
+      middle = torch.view_as_real(ft[:,1:-1]).reshape(n-2,dim)
+      return torch.cat((beg,middle),dim=1)
 
 def getInverseTransform(ft,dim):
   device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
