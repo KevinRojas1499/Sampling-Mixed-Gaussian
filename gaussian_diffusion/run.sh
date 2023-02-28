@@ -1,1 +1,0 @@
-python train_mnist.py
