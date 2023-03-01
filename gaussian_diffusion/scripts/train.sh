@@ -1,0 +1,1 @@
+python sampling.py --data_path datasets/random_sin_64_uniform.pt --save_path ckpts/coarse_sin_score.pt

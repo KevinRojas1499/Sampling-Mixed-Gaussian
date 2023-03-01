@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from dataclasses import dataclass
 
 
+####################################Simple Score####################################
+
 class Score(nn.Module):
 
     def __init__(self,n):
@@ -25,6 +27,8 @@ class Score(nn.Module):
         return x
 
 
+####################################Auto-Encoder####################################
+
 class Encoder(nn.Module):
     def __init__(self, n, num_layers=2):
         super().__init__()
@@ -38,7 +42,7 @@ class Encoder(nn.Module):
     def forward(self, x):
         x = x.float()
         for layer in layers:
-            x = nn.ReLU(layer(x))
+            x = layer(F.silu(x))
         return x
 
 
@@ -55,7 +59,7 @@ class Decoder(nn.Module):
     def forward(self, x):
         x = x.float()
         for layer in layers:
-            x = nn.ReLU(layer(x))
+            x = layer(F.silu(x))
         return x
 
 
@@ -76,3 +80,158 @@ class AutoEncoder(nn.Module):
 class LDM:
     score: Score
     autoencoder: AutoEncoder
+
+
+####################################FNO Score####################################
+
+
+class SpectralConv1d(nn.Module):
+    def __init__(self, in_channels, out_channels, modes, verbose=False):
+        super(SpectralConv1d, self).__init__()
+
+        """
+        2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
+        """
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes1 = modes #Number of Fourier modes to multiply, at most floor(N/2) + 1
+
+        self.verbose = verbose
+
+        self.scale = (1 / (in_channels * out_channels))
+        self.weights1 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, 2))
+        #self.weights2 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
+        
+    # Complex multiplication
+    def compl_mul1d(self, input, weights):
+        # (batch, in_channel, x), (in_channel, out_channel, x) -> (batch, out_channel, x)
+        return torch.einsum("bixt,ioxt->boxt", input, weights)
+
+    # Downsampling by truncating fourier modes?
+    def forward(self, x, out_dim):
+        print("Spec conv input, weights: ", x.shape, self.weights1.shape) if self.verbose else None
+        batchsize, in_channel, res = x.shape
+        #Compute Fourier coeffcients up to factor of e^(- something constant)
+        x_ft = torch.fft.rfft(x)
+        print("fft output shape: ", x_ft.shape) if self.verbose else None
+        print("out dim: ", out_dim) if self.verbose else None
+        x_ft = torch.view_as_real(x_ft)
+
+        # Multiply relevant Fourier modes
+        out_ft = torch.zeros((batchsize, self.out_channels, out_dim // 2 + 1, 2), device=x.device)
+        # I guess we are implicitly taking the lowest and highest modes?
+        out_ft[:, :, :self.modes1] = \
+            self.compl_mul1d(x_ft[:, :, :self.modes1], self.weights1)
+
+        #Return to physical space
+        out_ft = torch.view_as_complex(out_ft)
+        x = torch.fft.irfft(out_ft)
+        print("ifft output shape: ", x.shape) if self.verbose else None
+        return x
+
+
+class SpectralConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, modes1, modes2, up=False, down=False, verbose=True):
+        super(SpectralConv2d, self).__init__()
+
+        """
+        2D Fourier layer. It does FFT, linear transform, and Inverse FFT.
+        """
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes1 = modes1 #Number of Fourier modes to multiply, at most floor(N/2) + 1
+        self.modes2 = modes2
+        self.down = down
+        self.up = up
+
+        self.verbose = verbose
+
+        self.scale = (1 / (in_channels * out_channels))
+        self.weights1 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
+        self.weights2 = nn.Parameter(self.scale * torch.rand(in_channels, out_channels, self.modes1, self.modes2, 2))
+        
+    # Complex multiplication
+    def compl_mul2d(self, input, weights):
+        # (batch, in_channel, x,y), (in_channel, out_channel, x,y) -> (batch, out_channel, x,y)
+        return torch.einsum("bixyt,ioxyt->boxyt", input, weights)
+
+    # Downsampling by truncating fourier modes?
+    def forward(self, x):
+        print("Spec conv input, weights: ", x.shape, self.weights1.shape) if self.verbose else None
+        batchsize = x.shape[0]
+        #Compute Fourier coeffcients up to factor of e^(- something constant)
+        x_ft = torch.fft.rfft2(x)
+        x_ft = torch.view_as_real(x_ft)
+
+        # Multiply relevant Fourier modes
+        out_ft = torch.zeros((batchsize, self.out_channels,  x.size(-2), x.size(-1)//2 + 1, 2), device=x.device)
+        # I guess we are implicitly taking the lowest and highest modes?
+        out_ft[:, :, :self.modes1, :self.modes2] = \
+            self.compl_mul2d(x_ft[:, :, :self.modes1, :self.modes2], self.weights1)
+        out_ft[:, :, -self.modes1:, :self.modes2] = \
+            self.compl_mul2d(x_ft[:, :, -self.modes1:, :self.modes2], self.weights2)
+
+        #Return to physical space
+        out_ft = torch.view_as_complex(out_ft)
+        x = torch.fft.irfft2(out_ft, s=(x.size(-2), x.size(-1)))
+        return x
+
+
+class MLP(nn.Module):
+    def __init__(self, n_layers, input_dim, hidden_dim, output_dim, verbose=False):
+        super(MLP, self).__init__()
+        layers = []
+        for i in range(n_layers):
+            if i == 0:
+                layers.append(nn.Linear(input_dim, hidden_dim))
+            elif i == n_layers - 1:
+                layers.append(nn.Linear(hidden_dim, output_dim))
+            else:
+                layers.append(nn.Linear(hidden_dim, output_dim))
+        self.layers = nn.ModuleList(layers)
+        self.verbose = verbose
+    
+    def forward(self, x):
+        print("MLP input: ", x.shape) if self.verbose else None
+        for layer in self.layers:
+            x = layer(F.silu(x))
+        return x
+
+
+class FNOScore(nn.Module):
+    def __init__(self, n_layers, hidden_channels, hidden_dim, modes, verbose=False):
+        super(FNOScore, self).__init__()
+        layers = []
+        for i in range(n_layers):
+            if i == 0:
+                layers.append(SpectralConv1d(1, hidden_channels, modes, verbose=verbose))
+            elif i == n_layers - 1:
+                layers.append(SpectralConv1d(hidden_dim, 1, modes, verbose=verbose))
+            else:
+                layers.append(SpectralConv1d(hidden_dim, hidden_dim, modes, verbose=verbose))
+
+        self.layers = nn.ModuleList(layers)
+        self.time_embd = MLP(3, 1, hidden_dim, hidden_dim, verbose=verbose)
+
+        self.n_layers = n_layers
+        self.hidden_channels = hidden_channels
+        self.hidden_dim = hidden_dim
+        self.modes = modes
+        self.verbose = verbose
+        
+
+    def forward(self, x, t):
+        print("input shape: ", x.shape) if self.verbose else None
+        print("t shape: ", t.shape) if self.verbose else None
+        output_dim = x.shape[-1]
+        embds = self.time_embd(t).view(-1, 1, self.hidden_dim)
+        print("embds shape: ", embds.shape) if self.verbose else None
+        for i, layer in enumerate(self.layers):
+            print("Layer: ", i) if self.verbose else None
+            if i < self.n_layers - 1:
+                x = layer(F.silu(x), self.hidden_dim) + embds
+            else:
+                x = layer(F.silu(x), output_dim)
+        return x
