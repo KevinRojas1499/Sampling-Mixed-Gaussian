@@ -3,17 +3,17 @@ import time
 from torch.utils.data import DataLoader
 
 
-def train(sde, score_model, number_of_steps, data, file_to_save, device):
+def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd, epochs):
   # optimizer = torch.optim.SGD(score_model.parameters(),lr=0.01)
-  optimizer = torch.optim.Adam(score_model.parameters(), lr=3e-4)
+  optimizer = torch.optim.Adam(score_model.parameters(), lr=3e-4, weight_decay=wd)
   dataloader = DataLoader(data, batch_size=64, shuffle=True)
   errors = []
   t0 = time.time()
-  epochs = 100
   step = 0
-  for _ in range(epochs):
+  for epoch in range(epochs):
     for data in iter(dataloader):
       if step > number_of_steps:
+        print("Finished training after {} epochs and {} steps".format(epoch, step))
         break
       optimizer.zero_grad()
       loss = loss_function(sde,data, score_model, device)

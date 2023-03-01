@@ -11,7 +11,7 @@ import generateSamples
 import argparse
 
 
-def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder, n_layers, hidden_channels, hidden_dim, n_modes, data_path, verbose, sample_path):
+def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder, n_layers, hidden_channels, hidden_dim, n_modes, data_path, verbose, sample_path, lr, wd, num_steps, epochs):
 
     c = [1/2,1/6,1/3]
     means = [[0.5,0.5,0.5],[-15,-20,0], [30,10,20]]
@@ -48,7 +48,7 @@ def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder, n_l
 
     if mode == "train":
         print("Learning score...")
-        errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001, file_to_save=save_path, device=device)
+        errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=num_steps, file_to_save=save_path, device=device, lr=lr, wd=wd, epochs=epochs)
     else:
         print("Generating samples...")
         generatedSamples = sde.generate_samples_reverse(score_network=score_function, shape=shape, nsamples=1000)[0]
@@ -95,7 +95,8 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", default=None)
     parser.add_argument("--fft", action="store_true")
     parser.add_argument("--mode", default="train")
-    parser.add_argument("--num_samples", default=150001)
+    parser.add_argument("--num_samples", default=1000)
+    parser.add_argument("--num_steps", default=150001)
     parser.add_argument("--checkpoint_path", default="")
     parser.add_argument("--save_path", default="")
     parser.add_argument("--use_autoencoder", action="store_true")
@@ -105,6 +106,9 @@ if __name__ == "__main__":
     parser.add_argument("--n_modes", default=32)
     parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--sample_path", default="")
+    parser.add_argument("--lr", default=5e-5)
+    parser.add_argument("--wd", default=0)
+    parser.add_argument("--epochs", default=1000)
     args = parser.parse_args()
 
     run(**vars(args))

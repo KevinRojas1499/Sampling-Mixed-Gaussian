@@ -82,7 +82,9 @@ class GaussianRF(object):
 
 def generate_sin_dist(res=1024, n_samples=10000, low_res=64):
     grid = torch.linspace(-1, 1, res)
-    amp_freqs = torch.repeat_interleave(torch.abs(10*torch.randn((n_samples, 2))), res, dim=1).view(n_samples, 2, res)
+    amp_freqs = torch.repeat_interleave(torch.abs(torch.rand((n_samples, 2))), res, dim=1).view(n_samples, 2, res)
+    # Scale max freq to 10. Keep amplitude small to avoid training issues
+    amp_freqs[:, 1] = 10*amp_freqs[:, 1]
     samples = amp_freqs[:, 0]*torch.sin(amp_freqs[:, 1]*grid)
     torch.save(samples, "datasets/random_sin_1024.pt")
 
@@ -110,8 +112,8 @@ def visualize_sin(res=1024):
     print(samples.shape)
 
     plt.clf()
-    plt.plot(grid, samples[1].flatten().cpu())
-    plt.savefig("figs/sin.png")
+    plt.plot(grid, samples[0].flatten().cpu())
+    plt.savefig("figs/syn_sin.png")
 
 
 
