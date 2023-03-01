@@ -2,9 +2,10 @@ import numpy
 import scipy.fftpack
 import numpy as np
 import cv2
-
+import matplotlib.pyplot as plt
 import torch
 import math
+from tqdm import tqdm
 
 
 class GaussianRF(object):
@@ -79,6 +80,41 @@ class GaussianRF(object):
         return u
 
 
+def generate_sin_dist(res=1024, n_samples=10000, low_res=64):
+    grid = torch.linspace(-1, 1, res)
+    amp_freqs = torch.repeat_interleave(torch.abs(10*torch.randn((n_samples, 2))), res, dim=1).view(n_samples, 2, res)
+    samples = amp_freqs[:, 0]*torch.sin(amp_freqs[:, 1]*grid)
+    torch.save(samples, "datasets/random_sin_1024.pt")
+
+    coarsenings = []
+    # Generating coarsenings
+    for sample in tqdm(samples):
+        inds = torch.randperm(res)[:low_res]
+        ord_inds, _ = torch.sort(inds)
+        coarsenings.append(sample[ord_inds])
+    coarsenings = torch.stack(coarsenings)
+    print(coarsenings.shape)
+    torch.save(samples, "datasets/random_sin_64.pt")
+
+    # Generate uniform coarsening
+    uniform_coarsening = samples[:, ::(res // low_res)]
+    print(uniform_coarsening.shape)
+    torch.save(uniform_coarsening, "datasets/random_sin_64_uniform.pt")
+
+
+def visualize_sin(res=1024):
+    grid = torch.linspace(-1, 1, res)[::(1024//64)]
+    print(grid.shape)
+    #samples = torch.load("datasets/random_sin_64_uniform.pt")
+    samples = torch.load("samples/random_sin_64_uniform_samples.pt")
+    print(samples.shape)
+
+    plt.clf()
+    plt.plot(grid, samples[1].flatten().cpu())
+    plt.savefig("figs/sin.png")
+
+
+
 if __name__ == "__main__":
-    grf = GaussianRF(1, 10)
-    print(grf.sample(1))
+    #generate_sin_dist()
+    visualize_sin()

@@ -28,16 +28,16 @@ class LinearSDE(SDE):
 
   def marginal_prob_mean(self, x0, t):
     var = torch.exp(-self.beta*t*t/4)
-    return torch.mul(var,x0)
+    return var * x0
 
   def marginal_prob_var(self, t):
     var = torch.exp(-self.beta*t*t/4)
     return 1-var
 
 
-  def generate_samples_reverse(self, score_network: torch.nn.Module, dimension, nsamples: int, ode=False) -> torch.Tensor:
+  def generate_samples_reverse(self, score_network: torch.nn.Module, shape, nsamples: int, ode=False) -> torch.Tensor:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x_t = torch.randn((nsamples, dimension),device=device)
+    x_t = torch.randn([nsamples] + shape, device=device)
     time_pts = torch.linspace(1, 0, 1000).to(device)
 
     num_trajectories = 10
@@ -55,12 +55,13 @@ class LinearSDE(SDE):
           randomness = tot_diffusion * torch.randn_like(x_t) * torch.abs(dt) ** 0.5
           x_t += randomness
         trajectories = torch.cat((trajectories, x_t[:num_trajectories,:]),dim=1)
+    x_t = x_t.cpu()
     return x_t, trajectories
   
-  def generate_samples_reverse_fft(self, score_network: torch.nn.Module, dimension, nsamples: int, ode=False) -> torch.Tensor:
+  def generate_samples_reverse_fft(self, score_network: torch.nn.Module, shape, nsamples: int, ode=False) -> torch.Tensor:
     # This score function is in the data space
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    x_t = torch.randn((nsamples, dimension),device=device)
+    x_t = torch.randn([nsamples] + shape,device=device)
     time_pts = torch.linspace(1, 0, 100).to(device)
 
     num_trajectories = 10

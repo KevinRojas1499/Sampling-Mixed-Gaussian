@@ -11,15 +11,19 @@ import generateSamples
 import argparse
 
 
-def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder):
+def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder, n_layers, hidden_channels, hidden_dim, n_modes, data_path, verbose, sample_path):
 
     c = [1/2,1/6,1/3]
     means = [[0.5,0.5,0.5],[-15,-20,0], [30,10,20]]
     variances = [[[1,0,0],[0,1,0],[0,0,1]], [[5,1,-2],[1,1,3],[-2,3,5]] , [[1, 2,3],[2,5,6],[3,6,1]]]
 
     sde = sde_lib.LinearSDE(beta=20)
-    samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
+    if data_path is None:
+        samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
+    else:
+        samplesBeforeFFT = torch.load(data_path)
     samples = samplesBeforeFFT
+    print("Sample shape: ", samples.shape)
 
     if fft:
         # Move to frequency space
@@ -31,8 +35,7 @@ def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
 
-    dim = 4 if fft else 3
-    score_function = model.Score(dim)
+    score_function = model.FNOScore(n_layers, hidden_channels, hidden_dim, n_modes, verbose=verbose)#model.Score(dim)
 
     if checkpoint_path != "" and os.path.exists(checkpoint_path):
         print("Loading ckpt...")
@@ -40,13 +43,18 @@ def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder):
         score_function.load_state_dict(checkpoint)
 
     score_function = score_function.to(device=device)
-    samples = samples.to(device=device)
+    samples = samples.to(device=device)[:, None, :]
+    shape = list(samples.shape[1:])
 
     if mode == "train":
+        print("Learning score...")
         errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001, file_to_save=save_path, device=device)
     else:
-        generatedSamples = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000)[0]
+        print("Generating samples...")
+        generatedSamples = sde.generate_samples_reverse(score_network=score_function, shape=shape, nsamples=1000)[0]
         print(generatedSamples.shape)
+        torch.save(generatedSamples, sample_path) if sample_path != "" else None
+        exit()
         if fft:
             real, imaginary = torch.chunk(generatedSamples,2,dim=1)
 
@@ -84,12 +92,19 @@ def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("--data_path", default=None)
     parser.add_argument("--fft", action="store_true")
     parser.add_argument("--mode", default="train")
-    parser.add_argument("--num_samples", default=1000)
+    parser.add_argument("--num_samples", default=150001)
     parser.add_argument("--checkpoint_path", default="")
     parser.add_argument("--save_path", default="")
     parser.add_argument("--use_autoencoder", action="store_true")
+    parser.add_argument("--n_layers", default=4)
+    parser.add_argument("--hidden_channels", default=1)
+    parser.add_argument("--hidden_dim", default=64)
+    parser.add_argument("--n_modes", default=32)
+    parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--sample_path", default="")
     args = parser.parse_args()
 
     run(**vars(args))

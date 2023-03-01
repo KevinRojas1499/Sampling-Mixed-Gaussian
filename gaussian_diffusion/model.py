@@ -180,7 +180,7 @@ class SpectralConv2d(nn.Module):
 
 
 class MLP(nn.Module):
-    def __init__(self, n_layers, input_dim, hidden_dim, output_dim):
+    def __init__(self, n_layers, input_dim, hidden_dim, output_dim, verbose=False):
         super(MLP, self).__init__()
         layers = []
         for i in range(n_layers):
@@ -189,10 +189,12 @@ class MLP(nn.Module):
             elif i == n_layers - 1:
                 layers.append(nn.Linear(hidden_dim, output_dim))
             else:
-                layers.append(nn.Linear(hidden_dim, hidden_dim))
+                layers.append(nn.Linear(hidden_dim, output_dim))
         self.layers = nn.ModuleList(layers)
+        self.verbose = verbose
     
     def forward(self, x):
+        print("MLP input: ", x.shape) if self.verbose else None
         for layer in self.layers:
             x = layer(F.silu(x))
         return x
@@ -211,7 +213,7 @@ class FNOScore(nn.Module):
                 layers.append(SpectralConv1d(hidden_dim, hidden_dim, modes, verbose=verbose))
 
         self.layers = nn.ModuleList(layers)
-        self.time_embd = MLP(3, 1, hidden_dim, hidden_dim)
+        self.time_embd = MLP(3, 1, hidden_dim, hidden_dim, verbose=verbose)
 
         self.n_layers = n_layers
         self.hidden_channels = hidden_channels
@@ -221,10 +223,13 @@ class FNOScore(nn.Module):
         
 
     def forward(self, x, t):
+        print("input shape: ", x.shape) if self.verbose else None
+        print("t shape: ", t.shape) if self.verbose else None
         output_dim = x.shape[-1]
-        embds = self.time_embd(t).view(-1, self.hidden_channels, self.hidden_dim)
+        embds = self.time_embd(t).view(-1, 1, self.hidden_dim)
         print("embds shape: ", embds.shape) if self.verbose else None
         for i, layer in enumerate(self.layers):
+            print("Layer: ", i) if self.verbose else None
             if i < self.n_layers - 1:
                 x = layer(F.silu(x), self.hidden_dim) + embds
             else:

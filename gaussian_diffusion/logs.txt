@@ -1,0 +1,6 @@
+Sample shape:  torch.Size([10000, 64])
+cuda
+Step number 0 (0.8806767463684082s) 
+Error : 0.6841906309127808
+Step number 10000 (34.02918791770935s) 
+Error : 0.2321457713842392
