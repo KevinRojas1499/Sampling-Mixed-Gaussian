@@ -20,7 +20,7 @@ def run(args):
     print(device)
 
     if args.model_type == "fno":
-        score_function = model.FNOScore(args.n_layers, args.hidden_channels, args.hidden_dim, args.n_modes, verbose=args.verbose)#model.Score(dim)
+        score_function = model.FNOScore(args.n_layers, args.hidden_channels, args.hidden_dim, args.n_modes, time_embed_type=args.time_embed_type, res_layer_type=args.res_layer_type, verbose=args.verbose)#model.Score(dim)
     elif args.model_type == "simple":
         score_function = model.SimpleScore(samples.shape[-1])
     else:
@@ -68,6 +68,8 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", default=1000, type=int)
     parser.add_argument("--model_type", default="simple")
     parser.add_argument("--batch_size", default=1024, type=int)
+    parser.add_argument("--time_embed_type", default="mlp")
+    parser.add_argument("--res_layer_type", default=None, type=str)
     args = parser.parse_args()
 
     run(args)
