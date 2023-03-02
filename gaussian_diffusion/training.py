@@ -14,7 +14,7 @@ def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd,
     for data in iter(dataloader):
       if step > number_of_steps:
         print("Finished training after {} epochs and {} steps".format(epoch, step))
-        break
+        return errors
       optimizer.zero_grad()
       loss = loss_function(sde,data, score_model, device)
       loss.backward()
@@ -31,6 +31,7 @@ def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd,
 def loss_function(sde, data,score_function, device, eps = .0001):
   random_t = torch.rand((data.shape[0],1), device=data.device) * (sde.T - eps) + eps  
   shaped_random_t = torch.repeat_interleave(random_t, data.shape[-1], dim=1)[:, None, :]
+  shaped_random_t = random_t
   z = torch.randn_like(data).to(device)
   mean = sde.marginal_prob_mean(data,shaped_random_t)
   std = sde.marginal_prob_var(shaped_random_t)**.5

@@ -8,38 +8,8 @@ import training
 import ot
 import wandb
 import generateSamples
+from utils import *
 
-
-
-def plot3D(samples,ax,title):
-    ax.scatter3D(samples[:,0], samples[:,1], samples[:,2], color = "green")
-    plt.title(title)
-
-def dual3DPlot(samples1,samples2,title):    
-    fig = plt.figure()
-    fig.suptitle(title)
-    ax = fig.add_subplot(1, 2, 1, projection='3d')    
-    plot3D(samples1, ax,"Samples Before")
-
-    ax = fig.add_subplot(1, 2, 2, projection='3d')    
-    plot3D(samples2, ax, "Generated Samples")
-
-    plt.show()  
-
-def dualPlot(samples1, samples2,title):
-    fig = plt.figure()
-    fig.suptitle(title)
-    ax = fig.add_subplot(1, 2, 1)    
-
-    plt.title("Samples Before")
-    ax.scatter(samples1[:,0],samples1[:,1],color='red')
-
-
-    ax = fig.add_subplot(1, 2, 2)    
-    plt.title("Samples After")
-    ax.scatter(samples2[:,0],samples2[:,1],color='blue')
-
-    plt.show()
 
 
 num_samples = 1000
@@ -64,32 +34,9 @@ samplesFFT = torch.fft.fft(samplesBeforeFFT)
 dualPlot(samplesBeforeFFT,samplesFFT,'Comparison')
 
 path = './checkpoints2D/'
-methods = ['normal','fft']
+methods = ['normal']
 # methods = ['fft']
 
-def getTransform(ft):
-  a = []
-  for c in ft:
-    a.append(torch.real(c))
-    if torch.imag(c).item() != 0 :
-        a.append(torch.imag(c))
-  return torch.tensor(a)
-
-def getInverseTransform(ft,dim):
-  device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-  newT = torch.zeros(dim,dtype=torch.cfloat,device=device)
-  k = 0
-  for i,val in enumerate(ft):
-      if i == 0:
-          newT[k] = val
-          k+=1
-          continue
-      if(i%2 == 1):
-          newT[k] += val 
-      else :
-          newT[k] += torch.complex(torch.tensor(0.,device=device),val)
-          k+=1
-  return newT
 
 def train_all():
     for method in methods:
@@ -115,7 +62,7 @@ def train_all():
         score_function = score_function.to(device=device)
         samples = samples.to(device=device)
 
-        errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001, fileToSave=checkpointPath, device=device)
+        errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=150001, file_to_save=checkpointPath, device=device,lr=0.01,wd=0,epochs=150001)
         
 # train_all()
 
@@ -131,26 +78,13 @@ def sample(method,dim):
         checkpoint = torch.load(checkpointPath)
         score_function.load_state_dict(checkpoint)
 
-    k = 1000
     score_function = score_function.to(device=device)
     if method == 'sampleFourier':
-        generatedSamples, trajectories = sde.generate_samples_reverse_fft(score_network=score_function, dimension = dim, nsamples=1000,ode=True)
-        
-        plt.title("Trajectories Fourier")
-        for i in range(len(trajectories)):
-            s = trajectories[i].to('cpu').numpy()
-            s = np.array(np.split(s,s.shape[0]//2))
-            plt.plot(s[:k,0],s[:k,1])
-        plt.show()
+        generatedSamples, trajectories = sde.generate_samples_reverse_fft(score_network=score_function, shape=[dim], nsamples=1000,ode=False)
+        plotTrajectories(trajectories,"Trajectories Fourier")
     else: 
-        generatedSamples, trajectories = sde.generate_samples_reverse(score_network=score_function, dimension = dim, nsamples=1000,ode=True)
-
-        plt.title("Trajectories Normal")
-        for i in range(len(trajectories)):
-            s = trajectories[i].to('cpu').numpy()
-            s = np.array(np.split(s,s.shape[0]//2))
-            plt.plot(s[:k,0],s[:k,1])
-        plt.show()
+        generatedSamples, trajectories = sde.generate_samples_reverse(score_network=score_function, shape=[dim] , nsamples=1000,ode=False)
+        plotTrajectories(trajectories,"Trajectories Normal")
 
     if method != 'normal':
         for i , samp in enumerate(generatedSamples):
@@ -188,7 +122,7 @@ def fourierSample3D():
     dual3DPlot(samplesBeforeFFT,newSamples,title)
 
 # fourierSample3D()
-fourierSample2D()
+# fourierSample2D()
 
 samples = sample('normal',2)
 dualPlot(samplesBeforeFFT,samples,"Dual")
