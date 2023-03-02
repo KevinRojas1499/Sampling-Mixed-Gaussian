@@ -20,6 +20,7 @@ def run(mode, fft, num_samples, checkpoint_path, save_path, use_autoencoder, n_l
 
     score_function = model.FNOScore(n_layers, hidden_channels, hidden_dim, n_modes, verbose=verbose)#model.Score(dim)
 
+    score_function = model.SimpleScore(64)
     if checkpoint_path != "" and os.path.exists(checkpoint_path):
         print("Loading ckpt...")
         checkpoint = torch.load(checkpoint_path)
