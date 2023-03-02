@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
 
-
 ####################################Simple Score####################################
 
 class Score(nn.Module):
@@ -30,7 +29,7 @@ class Score(nn.Module):
 class SimpleScore(nn.Module):
 
     def __init__(self,n):
-        nodes = [64,64,64]
+        nodes = [128,256,128]
         super(SimpleScore, self).__init__()
         self.first_layer = nn.Linear(n+1, nodes[0])
         self.second_layer = nn.Linear(nodes[0], nodes[1])

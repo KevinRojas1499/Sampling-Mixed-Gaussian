@@ -1,0 +1,9 @@
+Sample shape:  torch.Size([10000, 64])
+cuda
+Learning score...
+Epoch: 0 | Step number: 0 | Elapsed time: (0.8600029945373535s) | Loss: 0.7160391211509705
+-----------------------
+Epoch: 1000 | Step number: 10000 | Elapsed time: (219.75173234939575s) | Loss: 0.08484721183776855
+-----------------------
+Epoch: 2000 | Step number: 20000 | Elapsed time: (438.5929934978485s) | Loss: 0.07952409237623215
+-----------------------
