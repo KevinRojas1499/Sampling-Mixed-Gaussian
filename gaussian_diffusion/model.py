@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from dataclasses import dataclass
 
-
 ####################################Simple Score####################################
 
 class Score(nn.Module):
@@ -30,7 +29,7 @@ class Score(nn.Module):
 class SimpleScore(nn.Module):
 
     def __init__(self,n):
-        nodes = [64,64,64]
+        nodes = [128,256,128]
         super(SimpleScore, self).__init__()
         self.first_layer = nn.Linear(n+1, nodes[0])
         self.second_layer = nn.Linear(nodes[0], nodes[1])
@@ -216,14 +215,26 @@ class MLP(nn.Module):
     
     def forward(self, x):
         print("MLP input: ", x.shape) if self.verbose else None
-        for layer in self.layers:
-            x = layer(F.silu(x))
+        for i, layer in enumerate(self.layers):
+            if i == 0:
+                x = layer(x)
+            else:
+                x = layer(F.silu(x))
         return x
 
 
 class FNOScore(nn.Module):
-    def __init__(self, n_layers, hidden_channels, hidden_dim, modes, verbose=False):
+    def __init__(self, n_layers, hidden_channels, hidden_dim, modes, time_embed_type, res_layer_type, verbose=False):
         super(FNOScore, self).__init__()
+
+        self.n_layers = n_layers
+        self.hidden_channels = hidden_channels
+        self.hidden_dim = hidden_dim
+        self.modes = modes
+        self.verbose = verbose
+        self.time_embed_type = time_embed_type
+        self.res_layer_type = res_layer_type
+
         layers = []
         for i in range(n_layers):
             if i == 0:
@@ -232,27 +243,37 @@ class FNOScore(nn.Module):
                 layers.append(SpectralConv1d(hidden_dim, 1, modes, verbose=verbose))
             else:
                 layers.append(SpectralConv1d(hidden_dim, hidden_dim, modes, verbose=verbose))
-
         self.layers = nn.ModuleList(layers)
-        self.time_embd = MLP(3, 1, hidden_dim, hidden_dim, verbose=verbose)
 
-        self.n_layers = n_layers
-        self.hidden_channels = hidden_channels
-        self.hidden_dim = hidden_dim
-        self.modes = modes
-        self.verbose = verbose
+        if self.res_layer_type == "linear":
+            res_layers = []
+            for _ in range(n_layers-1):
+                res_layers.append(nn.Linear(hidden_dim, hidden_dim))
+            self.res_layers = nn.ModuleList(res_layers)
+
+        if self.time_embed_type == "mlp":
+            self.time_embd = MLP(3, 1, hidden_dim, hidden_dim, verbose=verbose)
         
 
     def forward(self, x, t):
         print("input shape: ", x.shape) if self.verbose else None
         print("t shape: ", t.shape) if self.verbose else None
+        if self.time_embed_type == "mlp":
+            embds = self.time_embd(t).view(-1, 1, self.hidden_dim)
+            print("embds shape: ", embds.shape) if self.verbose else None
+        else:
+            x = torch.cat((x, t.unsqueeze(-1)), dim=-1)
+            embds = 0
         output_dim = x.shape[-1]
-        embds = self.time_embd(t).view(-1, 1, self.hidden_dim)
-        print("embds shape: ", embds.shape) if self.verbose else None
         for i, layer in enumerate(self.layers):
             print("Layer: ", i) if self.verbose else None
-            if i < self.n_layers - 1:
-                x = layer(F.silu(x), self.hidden_dim) + embds
+            if i == 0:
+                x = layer(x, self.hidden_dim) + embds
+            elif i < self.n_layers - 1:
+                x_act = F.silu(x)
+                x = layer(x_act, self.hidden_dim) + embds
+                if self.res_layer_type is not None:
+                    x += self.res_layers[i-1](x_act)
             else:
                 x = layer(F.silu(x), output_dim)
         return x

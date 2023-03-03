@@ -3,10 +3,10 @@ import time
 from torch.utils.data import DataLoader
 
 
-def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd, epochs):
+def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd, epochs, batch_size):
   # optimizer = torch.optim.SGD(score_model.parameters(),lr=0.01)
   optimizer = torch.optim.Adam(score_model.parameters(), lr=3e-4, weight_decay=wd)
-  dataloader = DataLoader(data, batch_size=64, shuffle=True)
+  dataloader = DataLoader(data, batch_size=batch_size, shuffle=True)
   errors = []
   t0 = time.time()
   step = 0
@@ -21,7 +21,8 @@ def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd,
       optimizer.step()
 
       if(step%10000 == 0):
-        print(f"Step number {step} ({time.time() - t0}s) \nError : {loss}")
+        print(f"Epoch: {epoch} | Step number: {step} | Elapsed time: ({time.time() - t0}s) | Loss: {loss}")
+        print("-----------------------")
         errors.append(loss)
         torch.save(score_model.state_dict(), file_to_save) if file_to_save != "" else None
       step += 1

@@ -1,0 +1,60 @@
+Sample shape:  torch.Size([10000, 64])
+cuda
+Printing input args...
+{
+    "data_path": "datasets/random_sin_64_uniform.pt",
+    "fft": false,
+    "mode": "train",
+    "num_samples": 1000,
+    "num_steps": 150001,
+    "checkpoint_path": "",
+    "save_path": "ckpts/fno_no_res_coarse_sin_score.pt",
+    "use_autoencoder": false,
+    "n_layers": 4,
+    "hidden_channels": 1,
+    "hidden_dim": 256,
+    "n_modes": 32,
+    "verbose": false,
+    "sample_path": "",
+    "lr": 5e-05,
+    "wd": 0,
+    "epochs": 50000,
+    "model_type": "fno",
+    "batch_size": 1024,
+    "time_embed_type": "mlp",
+    "res_layer_type": null
+}
+Learning score...
+Epoch: 0 | Step number: 0 | Elapsed time: (0.8829693794250488s) | Loss: 0.7170183658599854
+-----------------------
+Epoch: 1000 | Step number: 10000 | Elapsed time: (219.3891623020172s) | Loss: 0.017877448350191116
+-----------------------
+Epoch: 2000 | Step number: 20000 | Elapsed time: (437.8172240257263s) | Loss: 0.018042832612991333
+-----------------------
+Epoch: 3000 | Step number: 30000 | Elapsed time: (656.2422652244568s) | Loss: 0.017937174066901207
+-----------------------
+Epoch: 4000 | Step number: 40000 | Elapsed time: (874.6554608345032s) | Loss: 0.017683912068605423
+-----------------------
+Epoch: 5000 | Step number: 50000 | Elapsed time: (1093.0740299224854s) | Loss: 0.017159897834062576
+-----------------------
+Epoch: 6000 | Step number: 60000 | Elapsed time: (1311.5300741195679s) | Loss: 0.017145711928606033
+-----------------------
+Epoch: 7000 | Step number: 70000 | Elapsed time: (1529.9449198246002s) | Loss: 0.018250133842229843
+-----------------------
+Epoch: 8000 | Step number: 80000 | Elapsed time: (1748.4315838813782s) | Loss: 0.017343029379844666
+-----------------------
+Epoch: 9000 | Step number: 90000 | Elapsed time: (1966.878433227539s) | Loss: 0.017427995800971985
+-----------------------
+Epoch: 10000 | Step number: 100000 | Elapsed time: (2185.3303411006927s) | Loss: 0.01801736280322075
+-----------------------
+Epoch: 11000 | Step number: 110000 | Elapsed time: (2403.8254141807556s) | Loss: 0.01719452068209648
+-----------------------
+Epoch: 12000 | Step number: 120000 | Elapsed time: (2622.317191839218s) | Loss: 0.017626885324716568
+-----------------------
+Epoch: 13000 | Step number: 130000 | Elapsed time: (2840.7957003116608s) | Loss: 0.017519962042570114
+-----------------------
+Epoch: 14000 | Step number: 140000 | Elapsed time: (3059.2308712005615s) | Loss: 0.016110297292470932
+-----------------------
+Epoch: 15000 | Step number: 150000 | Elapsed time: (3277.6805210113525s) | Loss: 0.017377585172653198
+-----------------------
+Finished training after 15000 epochs and 150002 steps
