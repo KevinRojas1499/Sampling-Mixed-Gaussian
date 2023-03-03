@@ -112,7 +112,7 @@ def visualize_sin(res=1024):
     print(samples.shape)
 
     plt.clf()
-    plt.plot(grid, samples[3].flatten().cpu())
+    plt.plot(grid, samples[0].flatten().cpu())
     plt.savefig("figs/syn_sin.png")
 
 

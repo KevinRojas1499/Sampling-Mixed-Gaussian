@@ -15,7 +15,6 @@ def run(args):
     samples = torch.load(args.data_path)
     print("Sample shape: ", samples.shape)
 
-
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     print(device)
 
@@ -29,7 +28,7 @@ def run(args):
     if args.checkpoint_path != "" and os.path.exists(args.checkpoint_path):
         print("Loading ckpt...")
         checkpoint = torch.load(args.checkpoint_path)
-        score_function.load_state_dict(checkpoint)
+        score_function.load_state_dict(checkpoint, strict=True)
 
     score_function = score_function.to(device=device)
     samples = samples.to(device=device)[:, None, :]
