@@ -182,7 +182,8 @@ class SpectralConv2d(nn.Module):
         print("Spec conv input, weights: ", x.shape, self.weights1.shape) if self.verbose else None
         batchsize = x.shape[0]
         #Compute Fourier coeffcients up to factor of e^(- something constant)
-        x_ft = torch.fft.rfft2(x)
+        # TODO: Are we actually discarding low frequency? Check this carefully
+        x_ft = torch.fft.rfft2(x) # (B, C, H, W // 2 + 1)
         x_ft = torch.view_as_real(x_ft)
 
         # Multiply relevant Fourier modes

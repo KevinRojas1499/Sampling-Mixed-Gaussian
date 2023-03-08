@@ -80,43 +80,46 @@ class GaussianRF(object):
         return u
 
 
+def subsample(data, res):
+    print("Data shape: ", data.shape)
+    assert data.shape[-1] % res == 0
+    new_data = data[:, ::(data.shape[-1] // res)]
+    print("Subsampled shape: ", new_data.shape)
+    return new_data
+
+
 def generate_sin_dist(res=1024, n_samples=10000, low_res=64):
     grid = torch.linspace(-1, 1, res)
-    amp_freqs = torch.repeat_interleave(torch.abs(torch.rand((n_samples, 2))), res, dim=1).view(n_samples, 2, res)
+    amp_freqs = torch.repeat_interleave(torch.rand((n_samples, 2)), res, dim=1).view(n_samples, 2, res)
     # Scale max freq to 10. Keep amplitude small to avoid training issues
-    amp_freqs[:, 1] = 10*amp_freqs[:, 1]
-    samples = amp_freqs[:, 0]*torch.sin(amp_freqs[:, 1]*grid)
+    samples = amp_freqs[:, 0]*torch.sin(10*amp_freqs[:, 1]*grid)
     torch.save(samples, "datasets/random_sin_1024.pt")
-
-    coarsenings = []
-    # Generating coarsenings
-    for sample in tqdm(samples):
-        inds = torch.randperm(res)[:low_res]
-        ord_inds, _ = torch.sort(inds)
-        coarsenings.append(sample[ord_inds])
-    coarsenings = torch.stack(coarsenings)
-    print(coarsenings.shape)
-    torch.save(samples, "datasets/random_sin_64.pt")
 
     # Generate uniform coarsening
     uniform_coarsening = samples[:, ::(res // low_res)]
     print(uniform_coarsening.shape)
-    torch.save(uniform_coarsening, "datasets/random_sin_64_uniform.pt")
+    torch.save(uniform_coarsening, "datasets/random_sin_64.pt")
 
 
-def visualize_sin(res=1024):
-    grid = torch.linspace(-1, 1, res)[::(1024//64)]
-    print(grid.shape)
-    #samples = torch.load("datasets/random_sin_64_uniform.pt")
-    samples = torch.load("samples/random_sin_64_uniform_samples.pt")
-    print(samples.shape)
+def visualize_sin(sins, file_name):
+    res = sins.shape[-1]
+    grid = torch.linspace(-1, 1, res)
 
     plt.clf()
-    plt.plot(grid, samples[0].flatten().cpu())
-    plt.savefig("figs/syn_sin.png")
+    for i in range(5):
+        plt.plot(grid, sins[i].flatten().cpu())
+    plt.savefig("figs/{}.png".format(file_name))
+
+    for i in range(5):
+        plt.clf()
+        plt.plot(grid, sins[i].flatten().cpu())
+        print("Plotting {}_{}.png".format(file_name, i))
+        plt.savefig("figs/{}_{}.png".format(file_name, i))
 
 
 
 if __name__ == "__main__":
-    #generate_sin_dist()
-    visualize_sin()
+    #generate_sin_dist(low_res=64)
+    #visualize_sins()
+    subsampled = subsample(torch.load("datasets/random_sin_1024.pt"), 128)
+    torch.save(subsampled, "datasets/random_sin_128.pt")

@@ -7,6 +7,8 @@ import model
 import training
 import argparse
 import json
+from data import visualize_sin
+from neuralop.models.tfno import FNO, FNO1d
 
 
 def run(args):
@@ -22,6 +24,8 @@ def run(args):
         score_function = model.FNOScore(args.n_layers, args.hidden_channels, args.hidden_dim, args.n_modes, time_embed_type=args.time_embed_type, res_layer_type=args.res_layer_type, verbose=args.verbose)#model.Score(dim)
     elif args.model_type == "simple":
         score_function = model.SimpleScore(samples.shape[-1])
+    elif args.model_type == "tfno":
+        score_function = FNO1d(32, 32, in_channels=1, n_layers=4, rank=1.0)
     else:
         raise ValueError("{} model type not supported".format(args.model_type))
 
@@ -29,10 +33,14 @@ def run(args):
         print("Loading ckpt...")
         checkpoint = torch.load(args.checkpoint_path)
         score_function.load_state_dict(checkpoint, strict=True)
+    elif args.mode == "eval":
+        print("WARNING: Evaluating without loading checkpoint!!!")
 
     score_function = score_function.to(device=device)
     samples = samples.to(device=device)[:, None, :]
     shape = list(samples.shape[1:])
+
+    #torch.manual_seed(0)
 
     if args.mode == "train":
         print("Printing input args...")
@@ -44,6 +52,10 @@ def run(args):
         generatedSamples = sde.generate_samples_reverse(score_network=score_function, shape=shape, nsamples=1000)[0]
         print(generatedSamples.shape)
         torch.save(generatedSamples, args.sample_path) if args.sample_path != "" else None
+        print("Visualizing samples...")
+        file_name = os.path.basename(args.sample_path).split(".pt")[0] if args.sample_path is not None else "syn_sin"
+        visualize_sin(generatedSamples, file_name)
+        visualize_sin(samples, "baseline")
 
 
 if __name__ == "__main__":

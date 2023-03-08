@@ -5,7 +5,9 @@ from torch.utils.data import DataLoader
 
 def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd, epochs, batch_size):
   # optimizer = torch.optim.SGD(score_model.parameters(),lr=0.01)
-  optimizer = torch.optim.Adam(score_model.parameters(), lr=3e-4, weight_decay=wd)
+  optimizer = torch.optim.Adam(score_model.parameters(), lr=lr, weight_decay=wd)
+  epochs = min(epochs, number_of_steps // (len(data) // batch_size))
+  scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
   dataloader = DataLoader(data, batch_size=batch_size, shuffle=True)
   errors = []
   t0 = time.time()
@@ -26,6 +28,7 @@ def train(sde, score_model, number_of_steps, data, file_to_save, device, lr, wd,
         errors.append(loss)
         torch.save(score_model.state_dict(), file_to_save) if file_to_save != "" else None
       step += 1
+    scheduler.step()
   return errors
 
 

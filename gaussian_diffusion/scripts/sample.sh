@@ -1,6 +1,7 @@
- python sampling.py --data_path datasets/random_sin_64_uniform.pt \
---save_path ckpts/simple_coarse_sin_score.pt \
---sample_path samples/random_sin_64_uniform_simple.pt \
---model_type simple \
+CUDA_VISIBLE_DEVICES=1 python sampling.py --data_path datasets/random_sin_64.pt \
+--sample_path samples/scheduled_tfno_sin_64_samples.pt \
+--checkpoint_path ckpts/tfno_sin_64_bs_1024_dummy.pt \
+--model_type tfno \
 --time_embed_type mlp \
---mode eval 
+--res_layer_type linear \
+--mode eval
