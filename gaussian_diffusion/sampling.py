@@ -54,6 +54,7 @@ def run(args):
         torch.save(generatedSamples, args.sample_path) if args.sample_path != "" else None
         print("Visualizing samples...")
         file_name = os.path.basename(args.sample_path).split(".pt")[0] if args.sample_path is not None else "syn_sin"
+        print(file_name)
         visualize_sin(generatedSamples, file_name)
         visualize_sin(samples, "baseline")
 
@@ -63,7 +64,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str)
     parser.add_argument("--fft", action="store_true")
     parser.add_argument("--mode", default="train")
-    parser.add_argument("--ode_sampling", default=False)
+    parser.add_argument("--ode_sampling", default=False,type=bool)
     parser.add_argument("--num_samples", default=1000, type=int)
     parser.add_argument("--num_steps", default=150001, type=int)
     parser.add_argument("--checkpoint_path", default="")
