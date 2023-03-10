@@ -50,7 +50,7 @@ class LinearSDE(SDE):
         score = score_network(x_t,t.expand(x_t.shape[0], 1)).detach()
 
         prob_flow_constant = .5 if ode else 1
-        tot_drift = self.f(x_t,t) - self.g(t)**2 * score/prob_flow_constant
+        tot_drift = self.f(x_t,t) - self.g(t)**2 * score*prob_flow_constant
         tot_diffusion = self.g(t)
 
         # euler-maruyama step

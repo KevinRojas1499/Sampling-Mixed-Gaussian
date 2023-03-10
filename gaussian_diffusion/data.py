@@ -106,7 +106,7 @@ def visualize_sin(sins, file_name):
     grid = torch.linspace(-1, 1, res)
 
     plt.clf()
-    for i in range(5):
+    for i in range(10):
         plt.plot(grid, sins[i].flatten().cpu())
     plt.savefig("figs/{}.png".format(file_name))
 

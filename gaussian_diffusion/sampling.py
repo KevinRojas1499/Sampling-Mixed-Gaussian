@@ -49,7 +49,7 @@ def run(args):
         errors = training.train(sde=sde, score_model=score_function,data=samples, number_of_steps=args.num_steps, file_to_save=args.save_path, device=device, lr=args.lr, wd=args.wd, epochs=args.epochs, batch_size=args.batch_size)
     else:
         print("Generating samples...")
-        generatedSamples = sde.generate_samples_reverse(score_network=score_function, shape=shape, nsamples=1000)[0]
+        generatedSamples = sde.generate_samples_reverse(score_network=score_function, shape=shape, ode=args.ode_sampling, nsamples=1000)[0]
         print(generatedSamples.shape)
         torch.save(generatedSamples, args.sample_path) if args.sample_path != "" else None
         print("Visualizing samples...")
@@ -63,6 +63,7 @@ if __name__ == "__main__":
     parser.add_argument("--data_path", type=str)
     parser.add_argument("--fft", action="store_true")
     parser.add_argument("--mode", default="train")
+    parser.add_argument("--ode_sampling", default=False)
     parser.add_argument("--num_samples", default=1000, type=int)
     parser.add_argument("--num_steps", default=150001, type=int)
     parser.add_argument("--checkpoint_path", default="")
