@@ -7,7 +7,7 @@ import model
 import training
 import ot
 import wandb
-import generateSamples
+import gaussian_diffusion.generate_samples as generate_samples
 from utils import *
 
 
@@ -27,7 +27,7 @@ variances = [[[1,0],[0,1]], [[5,1],[1,1]] , [[1, 2],[2,5]], [[-1,-2],[-2,-5]],[[
 
 sde = sde_lib.LinearSDE(beta=20)
 np.random.seed(0)
-samplesBeforeFFT = torch.tensor(generateSamples.get_samples_from_mixed_gaussian(c,means,variances,num_samples))
+samplesBeforeFFT = generate_samples.get_samples_from_mixed_gaussian(c,means,variances,num_samples)
 
 samplesFFT = torch.fft.fft(samplesBeforeFFT)
 

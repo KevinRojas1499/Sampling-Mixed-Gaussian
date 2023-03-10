@@ -37,6 +37,7 @@ class LinearSDE(SDE):
 
   def generate_samples_reverse(self, score_network: torch.nn.Module, shape, nsamples: int, ode=False) -> torch.Tensor:
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    torch.manual_seed(0)
     x_t = torch.randn([nsamples] + shape, device=device)
     print(x_t.shape)
     time_pts = torch.linspace(1, 0, 1000).to(device)
@@ -47,7 +48,9 @@ class LinearSDE(SDE):
         t = time_pts[i]
         dt = time_pts[i + 1] - t
         score = score_network(x_t,t.expand(x_t.shape[0], 1)).detach()
-        tot_drift = self.f(x_t,t) - self.g(t)**2 * score
+
+        prob_flow_constant = .5 if ode else 1
+        tot_drift = self.f(x_t,t) - self.g(t)**2 * score/prob_flow_constant
         tot_diffusion = self.g(t)
 
         # euler-maruyama step
