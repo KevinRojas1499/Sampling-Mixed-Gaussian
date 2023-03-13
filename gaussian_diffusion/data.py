@@ -87,18 +87,47 @@ def subsample(data, res):
     print("Subsampled shape: ", new_data.shape)
     return new_data
 
+def generate_piecewise_func(res = 64, n_samples = 10000, num_intervals=5,save=False):
+    piecewise_func = torch.zeros((n_samples,res))
+    delta = 1/res
+    for j in range(n_samples):
+        rand_partition = torch.sort(torch.rand(num_intervals))[0]
+        rand_values = torch.rand(num_intervals)*2
+        k = 0
+        for i in range(res):
+            if k+1 < num_intervals and delta*i > rand_partition[k+1]:
+                k+=1
+            piecewise_func[j][i] = rand_values[k]
+    if save:
+        torch.save(piecewise_func, "datasets/random_piecewise_func.pt")
+    return piecewise_func
 
-def generate_sin_dist(res=1024, n_samples=10000, low_res=64):
+
+def generate_sin_dist(res=1024, n_samples=10000, low_res=64, save=True, min_amplitude=0):
     grid = torch.linspace(-1, 1, res)
     amp_freqs = torch.repeat_interleave(torch.rand((n_samples, 2)), res, dim=1).view(n_samples, 2, res)
+    amp_freqs+=min_amplitude
     # Scale max freq to 10. Keep amplitude small to avoid training issues
     samples = amp_freqs[:, 0]*torch.sin(10*amp_freqs[:, 1]*grid)
-    torch.save(samples, "datasets/random_sin_1024.pt")
+
+    uniform = "uniform" if min_amplitude == 0 else "nonuniform"
+    file_name = f"datasets/random_{uniform}_sin_1024.pt"
+    torch.save(samples, file_name)
 
     # Generate uniform coarsening
     uniform_coarsening = samples[:, ::(res // low_res)]
     print(uniform_coarsening.shape)
-    torch.save(uniform_coarsening, "datasets/random_sin_64.pt")
+    if save :
+        torch.save(uniform_coarsening, file_name)
+    return uniform_coarsening
+
+def generate_piecewise_sin_dist(res,n_samples,low_res, save=True):
+    sin_dist = generate_sin_dist(res,n_samples,low_res,save=False)
+    piece_dist = generate_piecewise_func(low_res,n_samples,5,save=False)
+    sin_piece_dist = sin_dist+piece_dist
+    if save: 
+        torch.save(sin_piece_dist,"datasets/random_piecewise_sin_64.pt")
+    return sin_piece_dist
 
 
 def visualize_sin(sins, file_name):
@@ -121,5 +150,6 @@ def visualize_sin(sins, file_name):
 if __name__ == "__main__":
     #generate_sin_dist(low_res=64)
     #visualize_sins()
-    subsampled = subsample(torch.load("datasets/random_sin_1024.pt"), 128)
-    torch.save(subsampled, "datasets/random_sin_128.pt")
+    generate_piecewise_sin_dist(64,1,64,False)
+    # subsampled = subsample(torch.load("datasets/random_sin_1024.pt"), 128)
+    # torch.save(subsampled, "datasets/random_sin_128.pt")
